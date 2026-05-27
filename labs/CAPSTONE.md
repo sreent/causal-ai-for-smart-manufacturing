@@ -273,7 +273,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter A — SECOM: Causal effect of a top sensor on yield
 
-- **Guided lab.** [`labs/ch14/lab14c_secom.ipynb`](ch14/lab14c_secom.ipynb)
+- **Guided lab.** [`labs/ch14/lab14c_secom_capstone.ipynb`](ch14/lab14c_secom_capstone.ipynb)
 - **Dataset.** SECOM (UCI 179), full 590-sensor frame.
 - **Question.** Among the five sensors with the largest unadjusted
   correlation with yield_fail, which one has the *largest causal
@@ -289,7 +289,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter B — AI4I: Effect of rotational-speed regime on machine failure
 
-- **Guided lab.** [`labs/ch14/lab14d_ai4i.ipynb`](ch14/lab14d_ai4i.ipynb)
+- **Guided lab.** [`labs/ch14/lab14d_ai4i_capstone.ipynb`](ch14/lab14d_ai4i_capstone.ipynb)
 - **Dataset.** AI4I 2020 (UCI 601), 10,000 milling-machine cycles.
 - **Question.** What is the causal effect of running at *above the median
   rotational speed* on the binary failure outcome, controlling for the
@@ -304,7 +304,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter C — LFP: Cumulative early-cycle high-drop exposure and battery cycle life
 
-- **Guided lab.** [`labs/ch14/lab14e_lfp.ipynb`](ch14/lab14e_lfp.ipynb)
+- **Guided lab.** [`labs/ch14/lab14e_lfp_capstone.ipynb`](ch14/lab14e_lfp_capstone.ipynb)
 - **Dataset.** Severson 2019 LFP cells, per-cycle slice.
 - **Question.** What is the causal effect of *cumulative early-cycle
   high-drop exposure* (cycles 2-50) on eventual `cycle_life`, accounting
@@ -319,7 +319,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter D — Backblaze: Optimal pre-emptive-replacement threshold under cost asymmetry
 
-- **Guided lab.** [`labs/ch14/lab14f_backblaze.ipynb`](ch14/lab14f_backblaze.ipynb)
+- **Guided lab.** [`labs/ch14/lab14f_backblaze_capstone.ipynb`](ch14/lab14f_backblaze_capstone.ipynb)
 - **Dataset.** Backblaze Drive Stats, ST4000DM000 30-day subset.
 - **Question.** What is the optimal SMART-based replacement policy at
   decision points day-7 and day-14, under a cost ratio of `c_R = 1`
@@ -337,7 +337,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter E — OEE synthetic: multi-mediator root-cause decomposition
 
-- **Guided lab.** [`labs/ch14/lab14g_oee.ipynb`](ch14/lab14g_oee.ipynb)
+- **Guided lab.** [`labs/ch14/lab14g_oee_capstone.ipynb`](ch14/lab14g_oee_capstone.ipynb)
 - **Dataset.** `labs/data/oee_synthetic.py` (curated synthetic; the SCM is
   in the module docstring).
 - **Question.** A maintenance program was rolled out unevenly across four
@@ -359,7 +359,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter F — Multi-site synthetic: transportability with effect modifier shift
 
-- **Guided lab.** [`labs/ch14/lab14h_multisite.ipynb`](ch14/lab14h_multisite.ipynb)
+- **Guided lab.** [`labs/ch14/lab14h_multisite_capstone.ipynb`](ch14/lab14h_multisite_capstone.ipynb)
 - **Dataset.** `labs/data/multisite_synthetic.py` (curated synthetic; SCM
   in the module docstring).
 - **Question.** Plant A's controlled trial estimates ATE ≈ +0.21 from the
@@ -494,12 +494,12 @@ starter prompts in §4:
 
 | Starter | Notebook | Pedagogical focus |
 |---------|----------|-------------------|
-| A. SECOM | `lab14c_secom.ipynb` | Most-thorough template — 9 code-cell exercises, 12 prose-cell exercises covering all six artifacts at full depth |
-| B. AI4I 2020 | `lab14d_ai4i.ipynb` | Strongest DAG-from-physics practice (every edge defensible from the AI4I codebook) |
-| C. LFP batteries | `lab14e_lfp.ipynb` | Methodologically deepest — sequential ICE g-formula vs one-shot g-comp comparison on time-varying treatment |
-| D. Backblaze | `lab14f_backblaze.ipynb` | Production-flavoured — DTR Q-learning under a cost-ratio sensitivity sweep ($c_F/c_R \in \{10, 100, 1000\}$) |
-| E. OEE synthetic | `lab14g_oee.ipynb` | Verifiable-answer multi-mediator decomposition — your estimator's correctness is checkable against `true_oee_decomposition()` |
-| F. Multi-site synthetic | `lab14h_multisite.ipynb` | Verifiable transportability — your reweighting must recover `true_ate_per_site()` |
+| A. SECOM | `lab14c_secom_capstone.ipynb` | Most-thorough template — 9 code-cell exercises, 12 prose-cell exercises covering all six artifacts at full depth |
+| B. AI4I 2020 | `lab14d_ai4i_capstone.ipynb` | Strongest DAG-from-physics practice (every edge defensible from the AI4I codebook) |
+| C. LFP batteries | `lab14e_lfp_capstone.ipynb` | Methodologically deepest — sequential ICE g-formula vs one-shot g-comp comparison on time-varying treatment |
+| D. Backblaze | `lab14f_backblaze_capstone.ipynb` | Production-flavoured — DTR Q-learning under a cost-ratio sensitivity sweep ($c_F/c_R \in \{10, 100, 1000\}$) |
+| E. OEE synthetic | `lab14g_oee_capstone.ipynb` | Verifiable-answer multi-mediator decomposition — your estimator's correctness is checkable against `true_oee_decomposition()` |
+| F. Multi-site synthetic | `lab14h_multisite_capstone.ipynb` | Verifiable transportability — your reweighting must recover `true_ate_per_site()` |
 
 **Pattern within each notebook.** Each artifact section follows:
 1. *Question* prompt with a hint pointing at the relevant Lab B chapter.
