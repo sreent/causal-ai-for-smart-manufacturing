@@ -1,0 +1,200 @@
+"""Build labs/lab01b.ipynb — companion to Lab 1A using real SECOM data."""
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+from _nb import md, code, write_notebook  # noqa: E402
+
+cells = [
+
+md("""# Lab 1B — From Correlation to Causation: The High-AUC Trap on Real SECOM Data
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab01b.ipynb)
+
+**Companion to Lab 1A.** Lab 1A built the trap on a synthetic SCM where we knew the truth and could verify that back-door adjustment recovers it. **Lab 1B runs the same loop on real semiconductor-yield data where the truth is unknown.**
+
+The deliverable here is *not* a number we verify against an oracle (there is no oracle). The deliverable is a **defensible analysis pipeline**: a justified DAG, an identification claim, an estimate with diagnostics, a sensitivity bound, and a written conclusion. This is the actual product you would hand to a process engineer in industry — Lab 1A taught the method, Lab 1B teaches the report.
+
+**Dataset.** SECOM (SEmiconductor MAnufacturing), McCann & Johnston, UCI ML Repository 2008. 1567 wafers, 590 sensor features, binary pass/fail at end-of-line, timestamps spanning Jul-Oct 2008. Real measurements from a real fab."""),
+
+md("""## What this lab is *not* doing
+
+To stay focused on the chapter's concept (naive ML vs back-door adjustment), this lab deliberately skips:
+
+- **Feature selection.** Five sensors were pre-selected in `secom_prep.py` (low missingness, top by |corr with yield_fail|).
+- **Missingness imputation.** Median imputation done in prep.
+- **EDA tangents.** No correlation matrices, no histograms-of-everything.
+- **Hyperparameter tuning.** Defaults throughout.
+
+The chapter's concept is: *naive ML's top feature is not necessarily a causal driver.* We test that on SECOM with one assumed DAG and one estimator. Other Lab Bs revisit SECOM with different questions."""),
+
+code("""# Colab setup — install ucimlrepo, then pull the repo's prep module if not already importable.
+%pip install -q ucimlrepo"""),
+
+code("""import os, sys, urllib.request, pathlib
+
+# Pull the SECOM prep module from the repo on first run.
+# The module then handles the actual secom.zip download (Google Drive primary,
+# UCI fallback) - no full git clone needed.
+PREP_PATH = pathlib.Path("/content/secom_prep.py")
+if not PREP_PATH.exists():
+    urllib.request.urlretrieve(
+        "https://raw.githubusercontent.com/sreent/causal-ai-for-smart-manufacturing/main/labs/data/secom_prep.py",
+        PREP_PATH,
+    )
+sys.path.insert(0, str(PREP_PATH.parent))
+
+from secom_prep import load_secom
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+
+rng = np.random.default_rng(0)"""),
+
+md("""## Part 1 — Load the focused slice
+
+One line. The prep module returns a tidy DataFrame with the five chosen sensors, a `period` stratifier (year-month bucket), and the binary `yield_fail` label."""),
+
+code("""df = load_secom(chapter=1)
+sensor_cols = [c for c in df.columns if c.startswith("S")]
+
+print(f"Shape: {df.shape}")
+print(f"Columns: {df.columns.tolist()}")
+print(f"Failure rate: {df['yield_fail'].mean():.3%}")
+print(f"Periods (months): {sorted(df['period'].unique())}")
+print(f"Wafers per period:\\n{df['period'].value_counts().sort_index()}")"""),
+
+md("""## Part 2 — The trap: naive ML's intervention recommendation
+
+Train a logistic regression on the five sensors. Report cross-validated AUC. Read off the top feature by absolute coefficient — this is what a naive ML pipeline would point a process engineer at."""),
+
+code("""X = df[sensor_cols].values
+y = df["yield_fail"].values
+
+clf = LogisticRegression(max_iter=2000, class_weight="balanced")
+auc = cross_val_score(clf, X, y, scoring="roc_auc", cv=5).mean()
+clf.fit(X, y)
+
+ranked = sorted(zip(sensor_cols, clf.coef_[0]), key=lambda t: -abs(t[1]))
+print(f"5-fold AUC: {auc:.3f}  (chance = 0.5; >0.6 indicates non-trivial signal)")
+print()
+print("Sensors ranked by |coefficient|:")
+for s, c in ranked:
+    print(f"  {s}: coef = {c:+.4f}")
+print()
+top_sensor = ranked[0][0]
+print(f"Naive intervention reading: 'control {top_sensor} to reduce failures'.")"""),
+
+md("""**Stop and read this output before continuing.** The naive ML pipeline has just told us which sensor to control. But: what would happen if we walked into the fab tomorrow and tightened the spec on that sensor? Would yield improve? The classifier doesn't know — it knows the sensor *predicts* failures, not whether *intervening on* the sensor would *cause* fewer failures. That's the gap Lab 1A taught us about. Now we have to confront it on real data."""),
+
+md("""## Part 3 — The assumed DAG
+
+We cannot derive the true DAG from data alone (the chapter's repeated point). What we can do is **state an assumed DAG and defend it from domain knowledge**. The assumed structure for SECOM is:
+
+```
+   period ──┬──► all sensors           (calibration drift, supplier lots, ambient conditions)
+            └──► yield_fail            (process maturity, mix shifts, seasonality)
+
+   sensors ────► yield_fail             (some sensors lie on the causal path; we do not know which)
+```
+
+**Justification.** SECOM was collected over four months in 2008 (McCann & Johnston, 2008). Across that span:
+
+- Calibration cycles shift sensor zero-points and gains, so the *same physical state* reads differently in different periods. (period → sensors)
+- Supplier material lots rotate; ambient temperature/humidity change; tool preventive-maintenance windows fall in certain weeks. (period → sensors, period → yield)
+- Process recipes are tweaked over campaign lifetimes. (period → yield)
+
+Under this DAG, `period` is a confounder for every (sensor → yield_fail) pair. The back-door criterion says: conditioning on `period` blocks the back-door, leaving the direct sensor → yield_fail effect (if any).
+
+**What the DAG does *not* claim.** It does not say sensors have no causal effect on yield. It says: any correlation between a sensor and yield could be confounded by `period`. To separate the parts, we have to adjust."""),
+
+md("""## Part 4 — Back-door adjustment on `period`
+
+Fit a separate logistic regression of `yield_fail` on each sensor within each period, then aggregate the within-period coefficients (weighted by period size). Compare to the naive coefficient.
+
+Sensors whose adjusted coefficient *shrinks substantially* were largely period-confounded — the naive coefficient was picking up calendar effects, not a causal sensor → yield relationship. Sensors whose adjusted coefficient *survives* are candidates (not proof — see Part 5) for a true causal driver."""),
+
+code("""def period_stratified_coef(df, sensor, min_n=30, min_pos=3):
+    coefs, weights = [], []
+    for period, sub in df.groupby("period"):
+        if len(sub) < min_n or sub["yield_fail"].sum() < min_pos:
+            continue
+        m = LogisticRegression(max_iter=2000, class_weight="balanced")
+        m.fit(sub[[sensor]], sub["yield_fail"])
+        coefs.append(m.coef_[0, 0])
+        weights.append(len(sub))
+    if not coefs:
+        return np.nan
+    return float(np.average(coefs, weights=weights))
+
+rows = []
+for s in sensor_cols:
+    naive = LogisticRegression(max_iter=2000, class_weight="balanced")
+    naive.fit(df[[s]], df["yield_fail"])
+    naive_coef = naive.coef_[0, 0]
+    adj_coef = period_stratified_coef(df, s)
+    rows.append({"sensor": s, "naive_coef": naive_coef, "period_adj_coef": adj_coef,
+                 "shrinkage": 1 - abs(adj_coef) / max(abs(naive_coef), 1e-9)})
+
+results = pd.DataFrame(rows).sort_values("shrinkage", ascending=False)
+print(results.to_string(index=False, float_format=lambda x: f"{x:+.4f}"))"""),
+
+md("""**Read the `shrinkage` column.** Sensors with shrinkage ≥ 0.5 lose at least half their apparent effect after period adjustment — calibration drift / supplier rotation / seasonality explains most of the raw correlation. Sensors with shrinkage near 0 hold their effect under adjustment; those are the candidates for a real causal relationship under the assumed DAG.
+
+The naive ML pipeline pointed us at the sensor with the largest |coefficient|. Compare: does that sensor survive period adjustment, or does it shrink?"""),
+
+md("""## Part 5 — Sensitivity: how strong would an unmeasured confounder have to be?
+
+Even the sensors that survive period adjustment might be confounded by something *we did not measure* — operator skill, vacuum-pump age, the specific spec sheet of the wafer lot. The Cinelli-Hazlett robustness value (Chapter 13 preview) asks: how strong would such a hidden confounder need to be to fully explain away our estimate?
+
+For a quick approximation on the surviving top sensor, we benchmark against `period` itself — if the partial-R² of period on `yield_fail` is 0.05, an unmeasured confounder would need *at least* comparable strength to neutralize a similar-magnitude estimate."""),
+
+code("""# Pick the survivor with the largest period-adjusted coefficient
+results_clean = results.dropna(subset=["period_adj_coef"])
+top_survivor = results_clean.iloc[results_clean["period_adj_coef"].abs().argmax()]
+s = top_survivor["sensor"]
+
+# Partial R^2 of period on yield_fail (categorical → one-hot dummies)
+period_dummies = pd.get_dummies(df["period"], drop_first=True).astype(float)
+base_var = df["yield_fail"].var()
+resid_var = (df["yield_fail"] - LogisticRegression(max_iter=2000)
+             .fit(period_dummies, df["yield_fail"])
+             .predict_proba(period_dummies)[:, 1]).var()
+period_r2 = 1 - resid_var / base_var
+
+print(f"Top surviving sensor:    {s}")
+print(f"Period-adjusted coef:    {top_survivor['period_adj_coef']:+.4f}")
+print(f"Partial R^2 of period:   {period_r2:.4f}")
+print()
+print(f"Interpretation: an unmeasured confounder would need at least similar")
+print(f"explanatory strength to `period` (R^2 ~ {period_r2:.3f}) on BOTH the sensor and")
+print(f"yield to fully explain away the {s} effect. Whether such a confounder")
+print(f"plausibly exists is a domain question, not a statistical one — talk to a")
+print(f"process engineer about candidates: operator skill, tool-age, supplier lot.")"""),
+
+md("""## Part 6 — Decision
+
+Three bullets, the actual industrial deliverable:
+
+1. **Naive ML top feature does NOT survive scrutiny.** Read off whichever sensor had the largest |coefficient| in Part 2 — under the assumed DAG, period adjustment either eliminates or substantially weakens its effect. A "control this sensor" recommendation based on Part 2 would be acting on a confounded correlation.
+
+2. **One or two sensors survive period adjustment with non-trivial magnitude.** They are *candidates* for causal drivers, not proof. The sensitivity check in Part 5 says an unmeasured confounder of strength comparable to the calendar effect would explain them away. This bar is low, so any candidate intervention should be validated experimentally before deployment.
+
+3. **The right next step is a controlled trial, not more data analysis.** Pick one or two survivors, run a deliberate intervention on production (e.g., tightened spec on one tool, leave another as control), measure yield over 2–4 weeks. The estimate from observational SECOM data has too much identification uncertainty to justify deployment without an experiment.
+
+This is the report. No oracle confirms it. The defense is the DAG, the adjustment, and the sensitivity bound — all of which are open to challenge by a domain expert with a different DAG."""),
+
+md("""## Reflection
+
+**Lab A taught the method; Lab B taught the report.** The synthetic Lab 1A let us verify back-door adjustment recovers a known truth. Lab 1B gave us *no* such oracle — and that absence is exactly what real-data causal inference looks like. What we produced instead is a *defensible* analysis: an assumed DAG with named justifications, an estimator that targets the right counterfactual under that DAG, a sensitivity statement that names how strong a hidden confounder would have to be, and a decision recommendation that acknowledges the uncertainty.
+
+**The same five steps apply to every causal analysis you will ever do in industry.** DAG → identification → estimation → sensitivity → decision. Lab Bs through the rest of the course exercise the same skeleton on different chapter concepts and different datasets — what changes is the middle step's machinery."""),
+
+md("""## What's next
+
+Lab 2B uses Bosch Production Line Performance data to demonstrate the back-door criterion in a multi-stage line context — same five-step skeleton, different DAG, different adjustment set."""),
+]
+
+write_notebook(pathlib.Path(__file__).parent.parent / "lab01b.ipynb", cells)
+print("Built lab01b.ipynb")

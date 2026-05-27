@@ -1,0 +1,29 @@
+# Dependencies for the Colab labs, for local install.
+# In Colab the per-lab %pip install cell handles these — this file is for
+# running the labs locally with `pip install -r labs/requirements.txt`.
+
+# Core scientific Python (Colab has these by default; pinning loosely)
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10,<1.16        # econml 0.16 wants scipy<1.16
+scikit-learn>=1.5,<1.7   # econml 0.16 wants scikit-learn<1.7
+matplotlib>=3.7
+
+# Causal-inference libraries (chapter stack)
+dowhy>=0.12         # Lab 1, 2, 3, 10 — identification + estimation API
+econml>=0.16        # Lab 5, 6 — DML, meta-learners, CausalForestDML
+causal-learn>=0.1   # Lab 9 — PC, FCI, GES from constraint-based discovery
+causalpy>=0.8       # Lab 4, 13 — PyMC-backed DID, RDD, synthetic control
+linearmodels>=6.0   # Lab 4 — IV2SLS
+pysensemakr>=0.1    # Lab 13 — Cinelli-Hazlett robustness value
+statsmodels>=0.14   # Lab 13 — OLS for sensemakr's input
+zepid>=0.9          # Lab 7 — g-methods (IPTW, MSM)
+# obp>=0.5          # Lab 11 — Open Bandit Pipeline. Optional: skip if it
+                    # fails to install in your environment (scipy/numpy compat).
+
+# Real-data loaders (Lab-B series)
+ucimlrepo>=0.0.7    # Official UCI fetcher used by labs/data/secom_prep.py (Lab 1B, 3B, 5B, 9B, 13B)
+
+# Notebook runtime
+jupyter>=1.0
+ipykernel>=6.0
