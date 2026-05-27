@@ -15,17 +15,17 @@ Click any **Open In Colab** badge to launch the notebook.
 |---|---|---|---|
 | 1 | [Lab 1](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch01/lab01.ipynb)   — high-AUC trap | [Lab 1B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch01/lab01b.ipynb)  — naive ML vs back-door on SECOM | SECOM |
 | 2 | [Lab 2](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch02/lab02.ipynb)   — SCMs and back-door | Lab 2B (planned)  — multi-stage back-door on Bosch PLP | Bosch PLP |
-| 3 | [Lab 3](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch03/lab03.ipynb)   — front-door and do-calculus | Lab 3B (planned)  — front-door on SECOM chemical pipeline | SECOM |
+| 3 | [Lab 3](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch03/lab03.ipynb)   — front-door and do-calculus | [Lab 3B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch03/lab03b.ipynb)  — front-door on a stipulated SECOM chain | SECOM |
 | 4 | [Lab 4](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch04/lab04.ipynb)   — IV, DID, RDD | Lab 4B (planned)  — phased station rollout on Bosch PLP | Bosch PLP |
-| 5 | [Lab 5](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch05/lab05.ipynb)   — G-comp, IPW, AIPW, DML | Lab 5B (planned)  — DML on SECOM with diagnostics | SECOM |
+| 5 | [Lab 5](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch05/lab05.ipynb)   — G-comp, IPW, AIPW, DML | [Lab 5B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch05/lab05b.ipynb)  — DML on SECOM with four-estimator diagnostics | SECOM |
 | 6 | [Lab 6](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch06/lab06.ipynb)   — CATE and meta-learners | Lab 6B (planned)  — CATE per station on Bosch PLP | Bosch PLP |
 | 7 | [Lab 7](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch07/lab07.ipynb)   — time-varying treatments | Lab 7B (planned)  — fast-charge policy effect on cycle life | LFP batteries (Severson et al. 2019) |
 | 8 | [Lab 8](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch08/lab08.ipynb)   — dynamic regimes | Lab 8B (planned)  — replacement / migration DTR under degradation | Backblaze Drive Stats |
-| 9 | [Lab 9](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch09/lab09.ipynb)   — causal discovery | Lab 9B (planned)  — PC/FCI on SECOM high-dim sensors | SECOM |
+| 9 | [Lab 9](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch09/lab09.ipynb)   — causal discovery | [Lab 9B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch09/lab09b.ipynb)  — PC on a 15-sensor SECOM slice | SECOM |
 | 10 | [Lab 10](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch10/lab10.ipynb) — mediation, RCA, FDC | Lab 10B (planned)  — multi-stage FDC on Bosch PLP | Bosch PLP |
-| 11 | [Lab 11](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch11/lab11.ipynb) — off-policy evaluation | Lab 11B (planned)  — OPE on Tennessee Eastman | Tennessee Eastman |
-| 12 | [Lab 12](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch12/lab12.ipynb) — causal RL and digital twins | Lab 12B (planned)  — causal RL on Tennessee Eastman | Tennessee Eastman |
-| 13 | [Lab 13](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch13/lab13.ipynb) — transportability, sensitivity, deployment | Lab 13B (planned)  — transportability across SECOM subsets | SECOM |
+| 11 | [Lab 11](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch11/lab11.ipynb) — off-policy evaluation | [Lab 11B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch11/lab11b.ipynb)  — IPS/SNIPS/DR on Tennessee Eastman | Tennessee Eastman |
+| 12 | [Lab 12](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch12/lab12.ipynb) — causal RL and digital twins | [Lab 12B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch12/lab12b.ipynb)  — learned-twin validation on Tennessee Eastman | Tennessee Eastman |
+| 13 | [Lab 13](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch13/lab13.ipynb) — transportability, sensitivity, deployment | [Lab 13B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch13/lab13b.ipynb)  — transport SECOM Jul-Aug -> Sep-Oct | SECOM |
 
 ## Lab B dataset palette
 
@@ -37,7 +37,7 @@ Five datasets cover all 13 chapters; most appear across 2-6 Lab Bs so students d
 | **Bosch PLP** | Real measurements | 2B, 4B, 6B, 10B | Kaggle competition (Bosch production line) |
 | **LFP batteries** | Real measurements | 7B | Severson et al. 2019 / `data.matr.io/1/` (124 Li-ion cells, 72 fast-charge protocols, RUL = cycles-to-EOL) |
 | **Backblaze Drive Stats** | Real measurements | 8B | backblaze.com/cloud-storage/resources/hard-drive-test-data (200k+ drives, daily SMART telemetry, observed failures) |
-| **Tennessee Eastman** | Simulator (canonical digital twin) | 11B, 12B | Downs & Vogel (chemical-process control) |
+| **Tennessee Eastman** | Simulator (canonical digital twin) | 11B, 12B | Downs & Vogel via [`tep2py`](https://github.com/camaramm/tep2py); two trajectories pre-generated in `labs/data/`, Fortran source vendored under `labs/data/te_simulator/` for re-simulation |
 | **MVTec AD** | Real images | 14B (frontier chapter) | MVTec research (industrial visual inspection) |
 
 Each dataset is named honestly in the Lab B intro — students learn to distinguish "real measurements" from "industry-standard simulator output," which is itself an epistemic skill the course wants to develop.
@@ -82,9 +82,13 @@ labs/
 ├── _nb.py                     # tiny helper that builds .ipynb from md/code cell lists
 ├── data/
 │   ├── secom_prep.py          # load_secom(chapter=N) returns the pre-cleaned slice for that lab
+│   ├── secom.zip              # vendored UCI SECOM data
+│   ├── te_prep.py             # load_te(scenario) for Labs 11B/12B
+│   ├── te_logged.csv          # pre-generated TE trajectory under Bernoulli(0.5) IDV(1)
+│   ├── te_candidate.csv       # pre-generated TE trajectory under IDV(1) = 0 always
+│   ├── te_simulator/          # vendored tep2py (Fortran source + Python wrapper) for re-simulation
 │   ├── bosch_prep.py          # (planned)
 │   ├── cmapss_prep.py         # (planned)
-│   ├── te_prep.py             # (planned)
 │   ├── mvtec_prep.py          # (planned)
 │   └── cache/                 # downloaded data, gitignored
 └── _build/

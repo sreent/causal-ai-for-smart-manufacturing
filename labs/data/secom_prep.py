@@ -210,9 +210,17 @@ def load_secom(chapter):
     df = _fetch_raw()
     if chapter == 1:
         return _slice_chapter1(df)
+    if chapter == 3:
+        return _slice_chapter3(df)
+    if chapter == 5:
+        return _slice_chapter5(df)
+    if chapter == 9:
+        return _slice_chapter9(df)
+    if chapter == 13:
+        return _slice_chapter13(df)
     raise ValueError(
         f"No SECOM slice defined for chapter {chapter}. "
-        f"Currently implemented: 1. Planned: 3, 5, 9, 13."
+        f"Currently implemented: 1, 3, 5, 9, 13."
     )
 
 
@@ -231,4 +239,106 @@ def _slice_chapter1(df):
     period_counts = out["period"].value_counts()
     keep_periods = period_counts[period_counts >= 30].index
     out = out[out["period"].isin(keep_periods)].reset_index(drop=True)
+    return out
+
+
+def _slice_chapter3(df):
+    """Ch 3 - front-door: a stipulated (X -> M -> Y) chain with period as a latent
+    confounder we pretend is unmeasured.
+
+    The columns in the returned frame are:
+      - period (kept for the comparison-with-back-door step)
+      - X (top sensor by |corr with yield|, renamed to make the role obvious)
+      - M (sensor with highest |corr with X| among the rest, renamed)
+      - yield_fail
+
+    Pedagogical point: SECOM has no published physical chain, so the lab
+    STIPULATES the chain and shows what front-door identification gives under
+    that assumption. Lab 1B established that `period` is a real confounder; in
+    Lab 3B we model the scenario where period is unobserved and ask whether
+    front-door rescues identification.
+
+    The original sensor IDs are kept in df.attrs['x_sensor'], ['m_sensor'].
+    """
+    top = _select_sensors_by_yield_corr(df, k=1, missingness_thresh=0.10)
+    x_sensor = top[0]
+
+    sensor_cols = [c for c in df.columns if c.startswith("S") and c != x_sensor]
+    miss = df[sensor_cols].isna().mean()
+    candidates = miss[miss < 0.10].index.tolist()
+    var = df[candidates].var()
+    candidates = var[var > 1e-10].index.tolist()
+    corrs_with_x = df[candidates].apply(lambda col: col.corr(df[x_sensor]))
+    m_sensor = corrs_with_x.abs().sort_values(ascending=False).index[0]
+
+    out = df[["period", x_sensor, m_sensor, "yield_fail"]].copy()
+    out = out.rename(columns={x_sensor: "X", m_sensor: "M"})
+    out["X"] = out["X"].fillna(out["X"].median())
+    out["M"] = out["M"].fillna(out["M"].median())
+    period_counts = out["period"].value_counts()
+    keep_periods = period_counts[period_counts >= 30].index
+    out = out[out["period"].isin(keep_periods)].reset_index(drop=True)
+    out.attrs["x_sensor"] = x_sensor
+    out.attrs["m_sensor"] = m_sensor
+    return out
+
+
+def _slice_chapter5(df):
+    """Ch 5 - estimation (G-comp, IPW, AIPW, DML): same 5 sensors as Ch 1.
+
+    One sensor is designated as the *treatment* (binarized at median); the other
+    four are continuous *controls* in the adjustment set. `period` is included
+    so the lab can show DML under a period-augmented control set as a
+    robustness check, mirroring Lab 1B's back-door narrative.
+
+    The treatment sensor (top by |corr with yield|) is in df.attrs['treatment'].
+    """
+    sensors = _select_sensors_by_yield_corr(df, k=5, missingness_thresh=0.10)
+    out = df[["period"] + sensors + ["yield_fail"]].copy()
+    for s in sensors:
+        out[s] = out[s].fillna(out[s].median())
+    period_counts = out["period"].value_counts()
+    keep_periods = period_counts[period_counts >= 30].index
+    out = out[out["period"].isin(keep_periods)].reset_index(drop=True)
+    out.attrs["treatment"] = sensors[0]
+    out.attrs["controls"] = sensors[1:]
+    return out
+
+
+def _slice_chapter9(df):
+    """Ch 9 - causal discovery: 15 top-correlated sensors + period + yield.
+
+    15 keeps PC / FCI tractable on a laptop; the SECOM full 590-sensor matrix
+    is intractable for constraint-based discovery in the lab timeframe. The
+    selection rule is the same one used for Ch 1 / Ch 5, so 9B's discovered
+    DAG can be compared against the assumed DAGs from those earlier labs.
+    """
+    sensors = _select_sensors_by_yield_corr(df, k=15, missingness_thresh=0.10)
+    out = df[["period"] + sensors + ["yield_fail"]].copy()
+    for s in sensors:
+        out[s] = out[s].fillna(out[s].median())
+    period_counts = out["period"].value_counts()
+    keep_periods = period_counts[period_counts >= 30].index
+    out = out[out["period"].isin(keep_periods)].reset_index(drop=True)
+    return out
+
+
+def _slice_chapter13(df):
+    """Ch 13 - transportability: Ch 1's 5 sensors plus a `split` column marking
+    'source' (Jul-Aug 2008) vs 'target' (Sep-Oct 2008).
+
+    The two halves are roughly equal in size and share the same five sensors,
+    so the lab can fit an estimator on the source half and ask whether it
+    transports to the target half. Period is kept for diagnostic plots.
+    """
+    sensors = _select_sensors_by_yield_corr(df, k=5, missingness_thresh=0.10)
+    out = df[["period", "ts"] + sensors + ["yield_fail"]].copy()
+    for s in sensors:
+        out[s] = out[s].fillna(out[s].median())
+    period_counts = out["period"].value_counts()
+    keep_periods = period_counts[period_counts >= 30].index
+    out = out[out["period"].isin(keep_periods)].reset_index(drop=True)
+
+    source_periods = {"2008-07", "2008-08"}
+    out["split"] = np.where(out["period"].isin(source_periods), "source", "target")
     return out
