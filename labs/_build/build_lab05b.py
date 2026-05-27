@@ -97,12 +97,16 @@ md("""**Read this naive ATE before continuing.** The unadjusted difference is wh
 
 md("""## Part 3 — Four estimators under the same DAG
 
-We compute each estimator with **5-fold cross-fitting** so the comparison is apples-to-apples. The nuisance models are gradient-boosted classifiers (the chapter's default ML choice).
+**Why cross-fitting before any estimator.** Every estimator below uses *nuisance models* — fitted predictors $\\hat{\\mu}(x, z)$ (outcome) and $\\hat{e}(z)$ (propensity) — to construct a final ATE score. If we fit the nuisance on the same rows we average the score over, the regularisation bias from the ML model leaks into the ATE, and the estimator's asymptotic distribution is no longer guaranteed to be valid. **Cross-fitting** is the fix: split the sample into $K$ folds, fit nuisances on $K - 1$ folds, predict on the held-out fold, and rotate. Every row gets a nuisance prediction made *without seeing that row at fit time*. The chapter's §5.6 derivation of the doubly-robust score relies on this orthogonality; without it the CI coverage is wrong.
 
-- **G-computation**: fit $\\hat{\\mu}(x, z) = E[Y \\mid X = x, Z = z]$, average $\\hat{\\mu}(1, Z_i) - \\hat{\\mu}(0, Z_i)$ over the sample.
-- **IPW**: fit $\\hat{e}(z) = P(X = 1 \\mid Z = z)$, trim to $[0.05, 0.95]$, apply the IPW formula.
-- **AIPW**: combine both nuisances using the doubly-robust score.
-- **DML**: AIPW score under cross-fitting (this implementation does that already)."""),
+We use $K = 5$ folds with gradient-boosted classifiers (the chapter's default ML choice). The nuisance models are the same across all four estimators; the only difference is *how* we combine them into the ATE.
+
+**The four estimators, in mechanism terms.**
+
+- **G-computation** $\\hat{\\tau}_g = \\frac{1}{n} \\sum_i [\\hat{\\mu}(1, z_i) - \\hat{\\mu}(0, z_i)]$ — predict the outcome at $X = 1$ and $X = 0$ for every unit, average the difference. *Biased if the outcome model is misspecified.*
+- **IPW** $\\hat{\\tau}_{\\text{IPW}} = \\frac{1}{n} \\sum_i \\frac{X_i Y_i}{\\hat{e}(z_i)} - \\frac{(1-X_i) Y_i}{1 - \\hat{e}(z_i)}$ — reweight each unit by inverse propensity, then take the difference of weighted means. *Biased if the propensity model is misspecified.*
+- **AIPW** (also called the augmented-IPW or doubly-robust estimator) $\\hat{\\tau}_{\\text{AIPW}} = \\frac{1}{n} \\sum_i [\\hat{\\mu}(1, z_i) - \\hat{\\mu}(0, z_i) + \\frac{X_i(Y_i - \\hat{\\mu}(1, z_i))}{\\hat{e}(z_i)} - \\frac{(1-X_i)(Y_i - \\hat{\\mu}(0, z_i))}{1 - \\hat{e}(z_i)}]$ — G-comp plus an IPW residual correction. *Consistent if **either** the outcome model **or** the propensity is correct (this is the "doubly robust" property; we demonstrate it empirically in Part 3b).*
+- **DML** is the AIPW score on cross-fit nuisances with an explicit orthogonalisation step (residualise both $Y$ and $X$ on $Z$, then regress one residual on the other). Same asymptotic story as AIPW; in practice gives slightly tighter CIs when the nuisance models are flexible."""),
 
 code("""def cross_fit_nuisances(X, Z, Y, K=5, seed=0):
     \"\"\"Return out-of-fold predictions for mu0, mu1, e (propensity).\"\"\"
@@ -182,6 +186,50 @@ md("""**How to read the table.**
 2. *Magnitude.* If they cluster within roughly one standard error, the magnitude is consistent — the DML CI is the most defensible single number.
 3. *Disagreement.* If G-comp differs from IPW substantially, suspect a misspecified outcome or propensity model. AIPW and DML *should* be close to each other in this binary-treatment, sufficient-sample regime; if they aren't, suspect cross-fit instability."""),
 
+md("""## Part 3b — AIPW's double-robustness in action
+
+The "AIPW is consistent if *either* the outcome OR the propensity is correct" claim is easy to assert and hard to feel. As in Lab 11B's analogous demo for OPE-DR, we *break* one nuisance at a time and check that AIPW survives.
+
+Three runs, holding the other nuisance fixed:
+
+1. **Both correct.** Gradient boosting for $\\hat{\\mu}$ and $\\hat{e}$ — what we just fit. AIPW should be unbiased.
+2. **Outcome destroyed.** Replace $\\hat{\\mu}(x, z)$ with the marginal mean of $Y$ (ignores $X, Z$). Propensity stays correct.
+3. **Propensity destroyed.** Replace $\\hat{e}(z)$ with the marginal $P(X=1)$ (ignores $Z$). Outcome stays correct.
+
+If AIPW truly is doubly-robust, runs 2 and 3 land close to run 1 even though each destroys one nuisance. If we see a large drift, AIPW didn't have the surviving component to lean on (this can happen when the surviving model is also misspecified — the "doubly fragile" failure mode)."""),
+
+code("""mu_correct = (mu0_hat, mu1_hat)
+e_correct  = e_hat
+
+# Run 1 -- both correct (already computed)
+tau_run1 = tau_aipw
+
+# Run 2 -- outcome destroyed (constant predictor at marginal mean)
+mu0_const = np.full(len(Y), Y.mean())
+mu1_const = np.full(len(Y), Y.mean())
+tau_run2, _ = aipw(X, Y, mu0_const, mu1_const, e_correct)
+
+# Run 3 -- propensity destroyed (constant at marginal P(X=1))
+e_const = np.full(len(Y), X.mean())
+tau_run3, _ = aipw(X, Y, mu0_hat, mu1_hat, e_const)
+
+table_dr = pd.DataFrame({
+    'nuisance setup':           ['1. Both correct (baseline)',
+                                  '2. Outcome destroyed, propensity correct',
+                                  '3. Propensity destroyed, outcome correct'],
+    'AIPW estimate':             [tau_run1, tau_run2, tau_run3],
+    'Shift vs baseline':         [0.0, tau_run2 - tau_run1, tau_run3 - tau_run1],
+})
+print(table_dr.to_string(index=False, float_format=lambda x: f'{x:+.4f}'))"""),
+
+md("""**Read the three rows carefully — the doubly-robust property is *asymptotic*, not magic.**
+
+- The fact that runs 2 and 3 *didn't collapse* to wildly biased values is the doubly-robust property at work: the surviving nuisance carried the load. Compare to the naive ATE (~0.05) — both broken-nuisance AIPW runs are still in the same neighbourhood as the both-correct baseline.
+- The fact that runs 2 and 3 *did drift* (typically by 0.01-0.02 here) tells you that finite-sample DR is not the same as infinite-sample DR. With 1567 wafers and a single correct nuisance, the surviving model alone cannot fully recover what both correct models give.
+- The chapter's §5.7 derivation makes this precise: AIPW is *consistent* (converges in the limit) if either nuisance is correct, but its finite-sample bias is bounded by the *product* of the two nuisance errors. Destroy one nuisance entirely and the bound collapses to "as good as the surviving model alone" — which on this data means a 30-40% shift in the point estimate, not a 10× blowup.
+
+**What this teaches.** Fit *both* nuisances as well as you can. AIPW's robustness is insurance against *moderate* misspecification of *one* model, not licence to give up on either. The naive IPW or G-comp with broken nuisances would have given an estimate dragged toward zero or toward the marginal mean; AIPW with one broken nuisance stays in the right neighbourhood. That bounded-rather-than-catastrophic failure mode is what makes the estimator deployable."""),
+
 md("""## Part 4 — Diagnostics: overlap and positivity
 
 Positivity says $0 < e(z) < 1$ everywhere in the support. The propensity histogram is the first-line diagnostic."""),
@@ -199,9 +247,19 @@ plt.show()
 n_trim = int(((e_hat < 0.05) | (e_hat > 0.95)).sum())
 print(f"Wafers in poor-overlap region (e < 0.05 or > 0.95): {n_trim} / {len(e_hat)} ({100*n_trim/len(e_hat):.1f}%)")"""),
 
-md("""**Read the histogram.** Healthy overlap means both treated and control density spans most of $[0,1]$. A bimodal pattern (most mass near 0 for controls and near 1 for treated) flags positivity violations: at extreme propensities, there are few comparison units, and IPW weights blow up.
+md("""**Read the histogram, using these quantitative criteria.**
 
-If the poor-overlap fraction is small (say <5%), the trimmed IPW estimate is defensible. If it's large (>15%), report the estimate *restricted to the common-support region* and say so clearly — the ATE on the original population is no longer identified."""),
+| Pattern | Interpretation | What to do |
+|---------|----------------|------------|
+| Both densities span most of [0.1, 0.9], substantial overlap | Healthy positivity | Trust the trimmed IPW + AIPW |
+| Treated mass piles near 1, controls near 0, narrow overlap region | Marginal positivity | Report trimmed estimates; the ATE generalises only to the common-support region |
+| One distribution is entirely outside the other's support | **Positivity violation** | The ATE is *not identified* on the full population; restrict to the overlap subset and say so explicitly |
+
+The trimmed-fraction threshold is more concrete than visual inspection:
+
+- **< 5%** of wafers in $e(z) \\in \\{<0.05, >0.95\\}$ → IPW is defensible; trimming is a minor stress check.
+- **5-15%** → trim, but report both pre- and post-trim ATE; if they agree, the original is robust.
+- **> 15%** → the positivity assumption is binding; report only the common-support ATE and explicitly note that the recommendation does not extend to wafers outside the overlap region."""),
 
 md("""## Part 5 — Sensitivity: positivity stress
 

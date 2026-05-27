@@ -148,6 +148,30 @@ print(f"  Reached stage 2, replaced there (A1=0, A2=1):     {n_repl_s2}")
 print(f"  Reached stage 2, waited, failed (A1=0, A2=0):     {n_fail_after_s2}")
 print(f"  Reached stage 2, waited, survived (A1=0, A2=0):   {n_survived}")"""),
 
+md("""## Background — backward induction in 90 seconds
+
+Before Parts 3-4 fit Q-functions, let's make the *why* concrete. Q-learning by backward induction has two ideas, both due to Bellman:
+
+**Idea 1: the Q-function is an expectation of the trajectory's total reward, conditional on starting state and action and *then playing optimally*.**
+
+$$Q_t(s, a) \\;\\equiv\\; E\\big[\\,R \\;\\big|\\; S_t = s, \\, A_t = a, \\, \\text{and future actions follow the optimal policy}\\,\\big].$$
+
+So $Q_2(s_2, 1)$ asks "if I am at stage 2 in state $s_2$ and I replace, what is my expected total cost?" — easy, it is $-c_R = -1$ no matter the state. And $Q_2(s_2, 0)$ asks "if I am at stage 2 in state $s_2$ and I wait, what is my expected total cost?" — that depends on the failure risk in $s_2$, which is what the regression must learn.
+
+**Idea 2: solve the *last* stage first, then propagate back.** This is the principle of optimality: at stage $T$ the future contains no further decisions, so $Q_T$ is just an expectation of the realised terminal reward — a normal regression problem. Once we have $Q_T$, the value of being in *any* state at $T$ is $V_T(s) = \\max_a Q_T(s, a)$. We then solve stage $T-1$ by treating $V_T(s_T)$ as the *continuation reward* — i.e., the future reward you can expect if you survive stage $T-1$ and play optimally at stage $T$.
+
+For our two-stage problem this means: **Part 3 fits $Q_2$ from realised data (the bottom of the chain); Part 4 uses $\\hat{V}_2 = \\max_a \\hat{Q}_2$ as the *future-value substitute* in the stage-1 regression** so the stage-1 fit can correctly value the option of waiting.
+
+**The "pseudo-outcome" trick in Part 4 is just this substitution.** For each drive at stage 1:
+
+| Stage-1 action / outcome | Pseudo-outcome we regress on | Why |
+|--------------------------|------------------------------|-----|
+| $A_1 = 1$ (replace) | $-c_R = -1$ | trajectory ends; reward fully realised |
+| $A_1 = 0$, failed before stage 2 | $-c_F = -10$ | trajectory ends; reward fully realised |
+| $A_1 = 0$, survived to stage 2 | $\\hat{V}_2(s_2)$ | trajectory continues; substitute optimal future value |
+
+The third row is the only one that uses $\\hat{V}_2$. The first two are realised rewards. The stage-1 regression then learns $Q_1(s_1, a_1)$ from this hybrid outcome, and the optimal stage-1 policy is $\\arg\\max_a \\hat{Q}_1(s_1, a)$."""),
+
 md("""## Part 3 — Stage-2 Q-function
 
 Fit $\\hat Q_2(S_2, A_2)$ by regressing the *realised* terminal reward on $(S_2, A_2)$ using the subset of drives that reached stage 2 with $A_1 = 0$. We use a quadratic basis to let the model bend across the severity axis.
@@ -157,8 +181,17 @@ This estimates the conditional expectation of the trajectory's final reward give
 code("""# Restrict to drives that reached stage 2 with A1 = 0
 mask_stage2 = (d['A1'] == 0) & ~fail_between_stages
 d2 = d[mask_stage2].copy()
-print(f"Stage-2 fitting subset: {len(d2)} drives  ({(d2['A2']==1).sum()} replaced, {(d2['A2']==0).sum()} waited)")
-print(f"  Failures in stage-2 wait arm: {int(((d2['A2']==0) & (d2['failed_after_stage2']==1)).sum())}")
+n_s2 = len(d2)
+n_repl_s2_arm = int((d2['A2']==1).sum())
+n_wait_s2_arm = int((d2['A2']==0).sum())
+n_fail_in_wait = int(((d2['A2']==0) & (d2['failed_after_stage2']==1)).sum())
+print(f"Stage-2 fitting subset: {n_s2} drives  ({n_repl_s2_arm} replaced, {n_wait_s2_arm} waited)")
+print(f"  Failures in stage-2 wait arm: {n_fail_in_wait}")
+print()
+if n_fail_in_wait < 20:
+    print(f"  CAVEAT: only {n_fail_in_wait} failure events in the wait arm means the stage-2")
+    print(f"  Q-function's threshold has wide error bars. The decision-boundary plot below")
+    print(f"  is qualitatively informative but the exact crossover severity is noisy.")
 
 poly2 = PolynomialFeatures(degree=2, include_bias=False)
 X2 = poly2.fit_transform(np.column_stack([d2['s2_severity'].values, d2['A2'].values]))
