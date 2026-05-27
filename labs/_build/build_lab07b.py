@@ -144,11 +144,24 @@ print(f"MSM (IPTW-weighted) slope: {float(msm.coef_[0]):+.2f}")
 print(f"G-comp slope:               {g_marginal:+.2f}")
 print(f"Naive slope:                {float(naive.coef_[0]):+.2f}")"""),
 
-md("""## Part 7 — Sequential g-formula on two cycle bins
+md("""## Part 7 — Sequential g-formula on two cycle bins  *(advanced)*
 
-The Parts 5-6 estimators collapsed all 50 early cycles into a single $(A, L)$ pair, treating cumulative exposure as a one-shot treatment. The chapter's *full* time-varying g-formula keeps the sequence: at each time step, the time-varying confounder $L_t$ depends on past treatment $A_{<t}$, and the next-step treatment $A_t$ depends on $L_t$.
+> The lab from a Severson-engineer's perspective is essentially complete after Part 6 — you have a one-shot g-comp estimate (Part 5) and an IPTW MSM (Part 6) and the comparison between them. **Part 7 is the methodological extension** that demonstrates the chapter's *full* sequential machinery on the same data, so you can see what the coarsening in Parts 5-6 left on the table. A first-pass reader can skip to Part 8 (Decision) and return here once the basics are comfortable.
 
-We demonstrate this on two cycle bins:
+**Why a second pass at this?** Parts 5-6 estimated the effect of *cumulative* exposure $A = $ "total high-drop cycles in days 2-50". This collapses the trajectory into a single number. The chapter's *full* time-varying g-formula keeps the sequence intact: at each time step $t$, the time-varying confounder $L_t$ depends on past treatment $A_{<t}$, the next-step treatment $A_t$ depends on $L_t$, and the outcome depends on the entire path. Whether this granularity matters is an *empirical* question; if $A_1$ barely shifts $L_2$, the one-shot and sequential answers agree. If it shifts $L_2$ substantially, only the sequential answer is correct, and Parts 5-6 are *biased*.
+
+**Estimator family map.** The lab now demonstrates four estimators on the same data, in increasing order of methodological rigour:
+
+| Part | Estimator | Treats time as | What it captures |
+|------|-----------|----------------|------------------|
+| 4 | Naive OLS | None — cumulative summary only | The marginal $A$-$Y$ association (biased by L) |
+| 5 | One-shot g-comp | None — cumulative $(A, L)$ summary | The summary-level $A$-$Y$ effect, conditioning on $L$ once |
+| 6 | One-shot IPTW MSM | None — cumulative $(A, L)$ summary | Same target as Part 5, by weighting rather than adjustment |
+| 7 | Sequential ICE g-formula (this Part) | Two cycle bins, with $L_t$ propagated | The chapter's full machinery: counterfactual $L_t$ under each $A_{<t}$ trajectory |
+
+If Parts 5-6 and Part 7 give similar answers, the coarsening was safe. If they diverge, Part 7 is the principled estimator and Parts 5-6 are biased.
+
+**Setup.** We demonstrate the sequential machinery on two cycle bins:
 
 - **Bin 1:** cycles 2-25. $A_1$ = 1 if the cell had above-median high-drop cycles in this bin; $L_1$ = `max_cap` at cycle 25.
 - **Bin 2:** cycles 26-50. $A_2$ = 1 if above-median in this bin; $L_2$ = `max_cap` at cycle 50.

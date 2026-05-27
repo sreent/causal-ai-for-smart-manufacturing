@@ -70,17 +70,24 @@ print("Logged columns (first 6):", list(log.columns)[:6], "...")"""),
 
 md("""## Part 2 — Frame the OPE problem
 
-**State $s_t$.** The TE process measurements at step $t$ (the 41 XMEAS variables).
+OPE has its own shorthand. Before we deploy the estimators in Parts 3-5, here is the symbol table you should keep in view, with each row anchored to a specific column of the TE dataframe so the abstractions stay concrete.
 
-**Action $a_t$.** The per-step value of IDV(1) — 0 or 1.
+| Symbol | Meaning | In our TE setup |
+|--------|---------|-----------------|
+| $s_t$ | State at step $t$ | The 41 XMEAS columns of the dataframe (process measurements) |
+| $a_t$ | Action at step $t$ | `log['action_idv1'].iloc[t]` — 0 or 1 |
+| $r_t$ | Reward at step $t$ | Computed from $s_t$: see formula below |
+| $\\pi_b(a \\mid s)$ | *Behaviour* policy — the probability the logged data assigned action $a$ in state $s$ | $\\pi_b(0 \\mid s) = \\pi_b(1 \\mid s) = 0.5$ (the trajectory was generated with a fair-coin IDV(1)) |
+| $\\pi_e(a \\mid s)$ | *Evaluation* policy — the policy we want to value | $\\pi_e(0 \\mid s) = 1$ always (never trigger IDV(1)) |
+| $V(\\pi_e)$ | The number we are trying to estimate | $E_{\\pi_e}[r_t]$ — the per-step reward we would earn deploying $\\pi_e$ |
 
-**Reward $r_t$.** Negative squared deviation of reactor pressure (XMEAS(7)) from a target of 2700 kPa, which is the published normal operating point for TE. This is a *cost-minimisation* framing: $r_t = -(XMEAS(7)_t - 2700)^2 / 10^6$ (scaled for readability).
+**Reward function.** $r_t = -(\\mathrm{XMEAS}(7)_t - 2700)^2 / 10^6$.
 
-**Behaviour policy $\\pi_b$.** $\\pi_b(a_t = 1 \\mid s_t) = 0.5$ for all $t$ (uniform random over the action toggle). This is by construction of the logged trajectory.
+- `XMEAS(7)` is reactor pressure in kPa. *2700 kPa is the published normal-operating-point pressure for the Tennessee Eastman process* (Downs & Vogel 1993, Table 4) — it is the value the plant's controllers are nominally tuned to maintain.
+- The negative-squared-deviation form turns "stay near target" into a maximisation objective for OPE. Dividing by $10^6$ scales the numbers to readable units (without the scale, a 100 kPa deviation gives $-10000$, which clutters the diagnostic tables).
+- A real process-control analysis would use a multi-objective reward (pressure + temperature + product purity + energy); we use the single-objective form to keep the lab focused on OPE mechanics.
 
-**Evaluation policy $\\pi_e$.** $\\pi_e(a_t = 0 \\mid s_t) = 1$ for all $t$ (always off). This is by construction of the candidate trajectory.
-
-**Estimand.** $V(\\pi_e) = E_{\\pi_e}[r_t]$ — the expected per-step reward under the evaluation policy."""),
+**Why this is a *causal* problem and not just a prediction problem.** The candidate policy *changes the action distribution*, which changes the *state* trajectory through the simulator's dynamics. Predicting reward under the candidate's action requires reasoning about a counterfactual world where IDV(1) is always 0, not interpolating from the world where it was a coin flip. That is what makes IPS / SNIPS / DR more than a re-weighted average."""),
 
 code("""def reward(df, pressure_target=2700.0):
     return -((df["XMEAS(7)"].values - pressure_target) ** 2) / 1e6
@@ -100,7 +107,18 @@ For a stationary, deterministic $\\pi_e$ and a stationary stochastic $\\pi_b$, p
 
 $$\\hat{V}_{IPS}(\\pi_e) = \\frac{1}{N} \\sum_{t=1}^{N} \\frac{\\pi_e(a_t \\mid s_t)}{\\pi_b(a_t \\mid s_t)} \\cdot r_t.$$
 
-For our setup, $\\pi_e(0 \\mid s_t) = 1$ and $\\pi_b(0 \\mid s_t) = 0.5$, so the importance weight is $2$ on steps where $a_t = 0$ and $0$ elsewhere."""),
+**Worked example, 4 rows.** Before unleashing this on 500 steps of TE, here is what the importance-weighting step does on a tiny sample, so the formula's mechanism is concrete:
+
+| $t$ | $a_t$ | $\\pi_b(a_t\\mid s_t)$ | $\\pi_e(a_t \\mid s_t)$ | weight $w_t = \\pi_e/\\pi_b$ | $r_t$ | $w_t \\cdot r_t$ |
+|----|-------|---------------------|---------------------|---------------------------|-------|-----------------|
+| 1 | 0  | 0.5 | 1 (matches $\\pi_e$) | **2.0** | −0.10 | −0.20 |
+| 2 | 1  | 0.5 | 0 (mismatches $\\pi_e$) | **0.0** | −0.40 | 0.00 |
+| 3 | 0  | 0.5 | 1 | **2.0** | −0.05 | −0.10 |
+| 4 | 1  | 0.5 | 0 | **0.0** | −0.60 | 0.00 |
+
+Average $w_t \\cdot r_t$ across the 4 rows = $-0.075$. That is the IPS estimate $\\hat{V}_{IPS}$. Compare to the naive logged average $(-0.10 - 0.40 - 0.05 - 0.60)/4 = -0.2875$, which is biased toward the high-cost $a = 1$ steps the evaluation policy would never choose.
+
+For our actual setup, $\\pi_e(0 \\mid s_t) = 1$ and $\\pi_b(0 \\mid s_t) = 0.5$, so the importance weight is $2$ on steps where $a_t = 0$ (the logged action matched the evaluation policy) and $0$ elsewhere — exactly the toy table above, just with 500 rows."""),
 
 code("""def importance_weights(actions, pe_action=0, pb_prob=0.5):
     \"\"\"Per-step weight for a deterministic pi_e and a Bernoulli(pb_prob) pi_b.\"\"\"
@@ -109,7 +127,10 @@ code("""def importance_weights(actions, pe_action=0, pb_prob=0.5):
 w = importance_weights(log["action_idv1"].values, pe_action=0, pb_prob=0.5)
 V_ips = float(np.mean(w * r_log))
 
-# Effective sample size (Kish): a variance diagnostic; small ESS -> high-variance IPS.
+# Kish's effective sample size: the equivalent number of unit-weight rows that
+# would give the same variance as our actual weighted average. For weights w_t
+# with mean 1, ESS = (Sum w)^2 / Sum(w^2). Low ESS means a few rows are doing
+# most of the work, so the IPS estimate is high-variance regardless of N.
 ess = (w.sum() ** 2) / (w ** 2).sum()
 ess_frac = ess / len(w)
 
@@ -117,6 +138,16 @@ print(f"IPS estimate of V(pi_e):                 {V_ips:+.4f}")
 print(f"Effective sample size (Kish):            {ess:.0f} of {len(w)}  ({100*ess_frac:.1f}%)")
 print(f"Ground truth V(pi_e):                    {r_cand.mean():+.4f}")
 print(f"IPS bias vs ground truth:                {V_ips - r_cand.mean():+.4f}")"""),
+
+md("""**Interpreting the ESS number.**
+
+- **ESS / N close to 1.0** — the weights are roughly uniform; every row contributes meaningfully; IPS variance is close to ordinary-average variance. This is the *favourable* regime.
+- **ESS / N around 0.5** — some rows dominate but the estimate is still trustworthy; expect IPS variance ~2x naive variance.
+- **ESS / N below ~0.1** — a small fraction of rows is doing most of the work. The IPS point estimate may be unbiased but its variance is huge, and finite-sample confidence intervals (when you compute them) will be wide.
+
+In our run, ESS / N is around 50% because $\\pi_e$ matches $\\pi_b$'s most-likely action exactly half the time (Bernoulli(0.5) gives equal action share). On a more imbalanced behaviour policy — e.g., $\\pi_b(a=0) = 0.9$ when $\\pi_e(a=0) = 1$ — ESS / N would be much closer to 1; on the other extreme — $\\pi_b(a=0) = 0.1$ when $\\pi_e(a=0) = 1$ — ESS / N would crash near zero and IPS becomes useless.
+
+**ESS is the most important OPE diagnostic.** A small bias against ground truth is forgivable if ESS / N > 0.25. A large bias with ESS / N < 0.10 means *the estimator literally has nothing to work with* — most logged rows had near-zero weight and got effectively dropped from the average."""),
 
 md("""## Part 4 — Self-normalised IPS (SNIPS)
 
@@ -160,6 +191,58 @@ V_dr = float(np.mean(direct + correction))
 print(f"DR estimate of V(pi_e):                  {V_dr:+.4f}")
 print(f"Ground truth V(pi_e):                    {r_cand.mean():+.4f}")
 print(f"DR bias vs ground truth:                 {V_dr - r_cand.mean():+.4f}")"""),
+
+md("""## Part 5b — Double robustness in action
+
+The claim "DR is consistent if *either* the reward model OR the propensity is correct" is easy to assert and hard to feel. Let's prove it by *breaking* the reward model on purpose and watching DR still recover the right number.
+
+Three reward models, three DR runs, same propensity (which we know exactly):
+
+1. **Correct.** Gradient boosting on $(s_t, a_t)$ — what we just fit.
+2. **Misspecified.** A constant predictor that returns the marginal mean reward, ignoring $s_t$ and $a_t$ entirely.
+3. **Zero.** A predictor that returns 0 everywhere (equivalent to plain IPS).
+
+If DR's double-robustness story is real, all three should land near ground truth. If only the correct model gets close, DR isn't doing what we claim it does."""),
+
+code("""# Common setup: the importance weights are the propensity component (known exactly).
+# Only the reward model varies between runs.
+
+def dr_estimate(direct_pe, r_hat_logged):
+    \"\"\"Generic DR formula: direct model term + IPS correction.\"\"\"
+    correction = w * (r_log - r_hat_logged)
+    return float(np.mean(direct_pe + correction))
+
+# Run 1 -- the correct reward model from Part 5 (re-using direct + correction).
+V_dr_correct = V_dr
+
+# Run 2 -- misspecified: constant predictor at the marginal mean.
+mean_r = float(r_log.mean())
+direct_const = np.full(len(S_log), mean_r)
+V_dr_const = dr_estimate(direct_const, np.full(len(S_log), mean_r))
+
+# Run 3 -- zero: ignores the reward model entirely (collapses DR to IPS).
+direct_zero = np.zeros(len(S_log))
+V_dr_zero = dr_estimate(direct_zero, np.zeros(len(S_log)))
+
+truth = float(r_cand.mean())
+table = pd.DataFrame({
+    'reward model':       ['Correct (gradient boosting)',
+                            'Misspecified (constant marginal mean)',
+                            'Zero (collapses to IPS)'],
+    'DR estimate':         [V_dr_correct, V_dr_const, V_dr_zero],
+    'Bias vs ground truth': [V_dr_correct - truth,
+                              V_dr_const - truth,
+                              V_dr_zero - truth],
+})
+print(f'Ground truth V(pi_e): {truth:+.4f}')
+print()
+print(table.to_string(index=False, float_format=lambda x: f'{x:+.4f}'))"""),
+
+md("""**Read the three rows.** All three DR estimates should be close to ground truth — within ~10% of each other — even though row 2 deliberately destroys the reward model's information and row 3 zeroes it out entirely. The reason is the IPS correction term: when $\\hat{r}$ is wrong, the residual $(r_t - \\hat{r}(s_t, a_t))$ contains the missing signal, and importance-weighting re-introduces it under $\\pi_e$.
+
+If row 2 or row 3 *did* drift far from ground truth in your run, the propensity $\\pi_b$ was already mildly off (e.g., the logged actions weren't quite Bernoulli(0.5) due to a finite-sample blip), and DR has no good component to lean on.
+
+**The same demonstration with broken propensity.** A parallel experiment — keep the correct reward model, but assume $\\pi_b(a=0) = 0.7$ instead of the true 0.5 — would show DR *still* close to ground truth, because the reward model would carry the load. That second experiment is left as an exercise; the lesson is symmetric."""),
 
 md("""## Part 6 — Side-by-side comparison"""),
 

@@ -23,7 +23,7 @@ md("""## What this lab is *not* doing
 - **Score-based or continuous-optimization methods.** GES, NOTEARS, and DAGMA are introduced in §9.5–9.6; this lab focuses on the constraint-based reference (PC).
 - **Hyperparameter tuning.** We use defaults from `causal-learn` (`alpha=0.05`, Fisher Z) and then vary alpha as a sensitivity check."""),
 
-code("""%pip install -q ucimlrepo causal-learn"""),
+code("""%pip install -q ucimlrepo causal-learn networkx"""),
 
 code("""import os, sys, urllib.request, pathlib
 
@@ -40,6 +40,7 @@ from secom_prep import load_secom
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import networkx as nx
 
 rng = np.random.default_rng(0)"""),
 
@@ -59,6 +60,90 @@ data = df[variables].astype(float).values
 print(f"Shape:        {data.shape}")
 print(f"Variables:    {variables}")
 print(f"Periods:      {sorted(df['period'].unique())} -> ord {sorted(df['period_ord'].unique())}")"""),
+
+md("""## Background — what PC actually does in 90 seconds
+
+Before running PC on real data, we need three pieces of vocabulary. None of this is in Lab 9A's synthetic exercise, which started with an already-discovered DAG; here we are about to *do* the discovering, so the algorithm has to be a glass box.
+
+**Phase 1 — Skeleton (edge removal).** PC starts with the *complete* undirected graph (every pair connected) and removes an edge $X-Y$ whenever it finds a set $S$ of other variables such that $X \\perp Y \\mid S$ — i.e., $X$ and $Y$ are *conditionally independent* given $S$. The Fisher-Z test is the statistical procedure that decides whether $X \\perp Y \\mid S$ given the data: it computes the partial correlation $\\rho_{XY \\mid S}$, transforms it to a $z$-statistic, and compares to the standard normal at level $\\alpha$. Smaller $\\alpha$ = stricter test = fewer rejections of independence = more edges removed = sparser skeleton.
+
+**Phase 2 — Orientation.**  Once the skeleton is fixed, PC orients edges where the data forces a direction. The two rules:
+
+1. *v-structure rule.* If $X - Z - Y$ is a path in the skeleton, $X$ and $Y$ are not adjacent, and $Z$ was *not* in any separating set that removed $X-Y$, then it must be a v-structure: $X \\to Z \\leftarrow Y$. (Without this rule, conditioning on $Z$ would have made $X \\perp Y$ — but it didn't.)
+2. *Meek propagation rules.* Apply a handful of logical rules (e.g., "don't create a new v-structure", "don't create a cycle") to orient additional edges implied by the v-structures.
+
+**The output is a CPDAG.** A CPDAG (Completed Partially Directed Acyclic Graph) has:
+
+- **Directed edges** — orientations PC could uniquely identify.
+- **Undirected edges** — pairs that are adjacent but where either direction would produce the same set of conditional independencies. PC refuses to invent direction here; that ambiguity is the *Markov equivalence class*, and it is the principled output.
+
+Undirected edges are *not* bugs. They are PC saying *the data alone cannot distinguish $X \\to Y$ from $Y \\to X$, and you should not pretend otherwise without bringing in interventions, temporal order, or domain priors.*"""),
+
+code("""# A 3-node Markov-equivalence sanity check before we touch SECOM.
+#
+# Two DAGs that are Markov-equivalent (same conditional-independence pattern):
+#    DAG_a: X -> Z -> Y
+#    DAG_b: X <- Z <- Y
+# Both produce the single independence: X _||_ Y | Z and nothing else.
+# PC will return the CPDAG  X --- Z --- Y  (both edges UNDIRECTED).
+#
+# Contrast: the v-structure  X -> Z <- Y  has NO conditional independencies
+# (X and Y are marginally independent, NOT independent given Z). PC will return
+#    X --> Z <-- Y  (both edges DIRECTED), because the data forces the v-structure.
+
+rng_demo = np.random.default_rng(42)
+n_demo = 2000
+# Generate from DAG_a: X -> Z -> Y
+X_demo = rng_demo.normal(0, 1, n_demo)
+Z_demo = 0.8 * X_demo + rng_demo.normal(0, 0.5, n_demo)
+Y_demo = 0.8 * Z_demo + rng_demo.normal(0, 0.5, n_demo)
+data_chain = np.column_stack([X_demo, Z_demo, Y_demo])
+
+# Generate from v-structure: X -> Z <- Y (X and Y marginally independent)
+X_v = rng_demo.normal(0, 1, n_demo)
+Y_v = rng_demo.normal(0, 1, n_demo)   # marginally independent of X
+Z_v = 0.8 * X_v + 0.8 * Y_v + rng_demo.normal(0, 0.5, n_demo)
+data_v = np.column_stack([X_v, Z_v, Y_v])
+
+from causallearn.search.ConstraintBased.PC import pc
+from causallearn.graph.Endpoint import Endpoint
+
+def summarise_pc(data, names):
+    cg = pc(data, alpha=0.05, indep_test='fisherz', show_progress=False)
+    directed, undirected = [], []
+    for e in cg.G.get_graph_edges():
+        i = cg.G.get_node_map()[e.get_node1()]
+        j = cg.G.get_node_map()[e.get_node2()]
+        ep1, ep2 = e.get_endpoint1(), e.get_endpoint2()
+        if ep1 == Endpoint.TAIL and ep2 == Endpoint.ARROW:
+            directed.append(f'{names[i]} -> {names[j]}')
+        elif ep1 == Endpoint.ARROW and ep2 == Endpoint.TAIL:
+            directed.append(f'{names[j]} -> {names[i]}')
+        elif ep1 == Endpoint.TAIL and ep2 == Endpoint.TAIL:
+            undirected.append(f'{names[i]} --- {names[j]}')
+    return directed, undirected
+
+d_chain, u_chain = summarise_pc(data_chain, ['X', 'Z', 'Y'])
+d_v,     u_v     = summarise_pc(data_v,     ['X', 'Z', 'Y'])
+
+print('Chain DAG (X -> Z -> Y), n=2000:')
+print(f'  Directed:   {d_chain}')
+print(f'  Undirected: {u_chain}')
+print('  -> PC returns undirected edges because X->Z->Y is Markov-equivalent to Y->Z->X.')
+print('  -> PC is honest about the ambiguity.')
+print()
+print('V-structure (X -> Z <- Y), n=2000:')
+print(f'  Directed:   {d_v}')
+print(f'  Undirected: {u_v}')
+print('  -> PC orients both edges into Z because the data has NO X _||_ Y | Z independence.')
+print('  -> PC commits to direction because the data forces it.')"""),
+
+md("""**Read the sanity check.** This is the entire intuition for PC's output on SECOM:
+
+- When you see an *undirected* edge in the CPDAG, the data is telling you *the conditional-independence pattern is consistent with either direction*. PC refuses to guess.
+- When you see a *directed* edge, the data was inconsistent with the reverse orientation: a v-structure forced the direction, or a propagation rule did.
+
+A CPDAG with many undirected edges is *not* a weak discovery; it is an *honest* one. A CPDAG with many directed edges either reflects a lot of v-structures in the data, or a Phase-2 over-orientation from Meek rules under finite-sample noise. The next sections check which is the case for SECOM."""),
 
 md("""## Part 2 — PC with Fisher Z, alpha = 0.05
 
@@ -126,9 +211,69 @@ md("""**Read these lists with care.** A name appearing as a *parent of yield_fai
 
 If `period_ord` appears as a parent of yield_fail or of many sensors, PC has *re-discovered* the confounder we identified by domain knowledge in Lab 1B. That is a non-trivial sanity check on the discovery."""),
 
+md("""## Part 3b — Visualise the CPDAG
+
+A picture beats a list. Solid arrows are PC's directed edges (data forced an orientation); dashed lines are undirected edges (Markov-equivalent in either direction). `yield_fail` is highlighted as the engineering target."""),
+
+code("""def draw_cpdag(directed, undirected, target='yield_fail', figsize=(9, 7)):
+    G = nx.DiGraph()
+    nodes_in_graph = set()
+    for u, v in directed:
+        G.add_edge(u, v)
+        nodes_in_graph.update([u, v])
+    for u, v in undirected:
+        nodes_in_graph.update([u, v])
+
+    # Add isolated nodes (none in PC output unless PC removed all their edges).
+    for n in nodes_in_graph:
+        if n not in G:
+            G.add_node(n)
+
+    # Layout: put target at center, period to its left, sensors arranged around.
+    pos = nx.spring_layout(G, seed=0, k=1.8 / max(len(G), 1) ** 0.5, iterations=200)
+    if target in pos:
+        pos[target] = np.array([0.0, 0.0])
+    if 'period_ord' in pos:
+        pos['period_ord'] = np.array([-1.2, 0.0])
+
+    fig, ax = plt.subplots(figsize=figsize)
+    node_colors = ['#fdb462' if n == target
+                   else '#80b1d3' if n == 'period_ord'
+                   else '#b3de69'
+                   for n in G.nodes()]
+    nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=900, ax=ax)
+    nx.draw_networkx_labels(G, pos, font_size=8, ax=ax)
+    nx.draw_networkx_edges(G, pos, edgelist=list(G.edges()), arrows=True,
+                           arrowsize=14, edge_color='#444', width=1.4, ax=ax)
+    # Undirected edges drawn as dashed lines without arrowheads.
+    nx.draw_networkx_edges(G, pos, edgelist=[(u, v) for u, v in undirected
+                                              if u in pos and v in pos],
+                           arrows=False, style='dashed', edge_color='#888',
+                           width=1.2, ax=ax)
+    ax.set_title(r'Discovered CPDAG ($\\alpha$ = 0.05). Solid = directed, dashed = undirected.',
+                 fontsize=11)
+    ax.axis('off')
+    plt.tight_layout()
+    plt.show()
+    return G
+
+G_cpdag = draw_cpdag(directed, undirected)
+print(f'Nodes in CPDAG with at least one edge: {len(G_cpdag.nodes())}')"""),
+
+md("""**Read the plot.** Three things to look for:
+
+- **Period's role.** If `period_ord` (left) has many edges fanning out to sensors *and* a path to `yield_fail` (center), PC has rediscovered the time-varying confounder Lab 1B controlled for via period stratification.
+- **Direct yield-fail parents.** Any solid arrow pointing *into* `yield_fail` is a sensor PC oriented as a direct cause. These are the candidate intervention targets for a process-control follow-up.
+- **Undirected edges around yield_fail.** Where PC could not orient, the data alone is insufficient. Resolving these needs either an intervention (try changing the sensor reading and see whether yield responds) or temporal information (do sensor readings precede yield outcomes?)."""),
+
 md("""## Part 4 — Sensitivity to the significance level
 
-PC's behaviour at finite samples depends strongly on alpha. Smaller alpha → stricter independence (fewer edges); larger alpha → more edges. The chapter recommends comparing CPDAGs at alpha = 0.01, 0.05, 0.10 as a default sensitivity check."""),
+PC's behaviour at finite samples depends strongly on $\\alpha$. The link is mechanical: each CI test rejects $X \\perp Y \\mid S$ when its $z$-statistic exceeds the $\\alpha/2$ quantile of $\\mathcal{N}(0,1)$.
+
+- **Smaller $\\alpha$ (e.g., 0.01)** → harder to reject independence → more pairs are *kept* as independent → edges are *removed* → **sparser graph**. Risk: false negatives (missing real edges).
+- **Larger $\\alpha$ (e.g., 0.10)** → easier to reject independence → fewer pairs are kept as independent → edges *survive* in the skeleton → **denser graph**. Risk: false positives (spurious edges from noise).
+
+The chapter recommends comparing CPDAGs at $\\alpha = 0.01, 0.05, 0.10$. An edge that appears at all three is *robust*; an edge that appears only at $\\alpha = 0.10$ is suspect. The same logic is stability selection for the Lasso, transposed to constraint-based discovery."""),
 
 code("""def run_pc_summary(data, alpha, indep_test="fisherz"):
     cg_ = pc(data, alpha=alpha, indep_test=indep_test, show_progress=False)
