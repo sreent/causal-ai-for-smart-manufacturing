@@ -70,11 +70,28 @@ print(f"Candidate trajectory: {S_cand.shape} action rate {a_cand.mean():.2f}")""
 
 md("""## Part 2 — Fit a linear structural twin
 
-The twin's structural equations are:
+**Why a linear twin first?** The Tennessee Eastman process is highly nonlinear, so a linear next-state model cannot be the *final* twin. But it is the right *first attempt*, for three reasons that recur across digital-twin practice:
 
-$$X_{t+1} = A \\, X_t + B \\, a_t + \\varepsilon_t$$
+1. **Closed-form fit.** OLS on the lagged-state regression $X_{t+1} = A X_t + B a_t + \\varepsilon_t$ has an analytic solution. There are no hyperparameters, no random seeds, no convergence diagnostics to argue about. If the linear twin doesn't work, you know it's the model class, not the optimiser.
+2. **Diagnosable failure modes.** When the linear twin is wrong, we can *read why* directly from its coefficients: an unstable $A$ matrix (spectral radius > 1) tells us rollouts will diverge; a small $B$ tells us the action barely moves the state in this representation; large off-diagonal elements of $A$ tell us which state components are coupled. None of these failure signatures are visible in a deep-net twin.
+3. **A known generalisation path.** Once we know the linear ansatz fails, we know exactly which extensions to reach for: kernel-ridge regression (smooth nonlinearity), Gaussian-process residuals (uncertainty), neural-ODE / discrete-step deep nets (high-capacity), or hybrid physics-plus-residual models. The chapter's §12.5 develops these in sequence; we are at step zero of that ladder.
 
-with $A \\in \\mathbb{R}^{n \\times n}$, $B \\in \\mathbb{R}^{n}$, and i.i.d. residuals $\\varepsilon_t$. Fitting reduces to one OLS per state component (or equivalently a single multi-output linear regression). This is the *simplest possible* structural twin; the chapter's §12.5 generalises to nonlinear $f$, GP residual, or hybrid physics-plus-correction forms."""),
+**The structural equations.**
+
+$$X_{t+1} = A \\, X_t + B \\, a_t + \\mathrm{bias} + \\varepsilon_t$$
+
+with $A \\in \\mathbb{R}^{n \\times n}$, $B \\in \\mathbb{R}^{n}$, i.i.d. residuals $\\varepsilon_t$, and $n$ = the 41 XMEAS state components.
+
+**Interpreting $A$ and $B$ after fitting.**
+
+- $A_{ij}$ is the linear contribution of state component $j$ at time $t$ to state component $i$ at time $t+1$. Off-diagonal entries reveal *coupling* between process variables (e.g., reactor temperature affects downstream pressure).
+- $B_i$ is the per-step linear effect of the action on state component $i$. If $|B|$ is tiny, the action does nothing in this representation, and the twin will misrank any policy that differs from $\\pi_b$.
+- $\\|A\\|_2$ (the spectral radius / largest singular value) is the **stability indicator**. Three regimes:
+  - $\\|A\\|_2 < 1$ — bounded rollouts; errors die out; the twin is safe for multi-step planning.
+  - $\\|A\\|_2 = 1$ — marginally stable; rollouts neither grow nor decay; usable but fragile.
+  - $\\|A\\|_2 > 1$ — rollouts diverge over time; the twin is *not* trustworthy for long-horizon predictions even if its one-step fit looks good.
+
+Fitting reduces to one OLS per state component (or equivalently a single multi-output linear regression)."""),
 
 code("""# Build (X_t, a_t) -> X_{t+1} pairs from the logged trajectory.
 X_t   = S_log[:-1]
@@ -94,9 +111,56 @@ train_pred = twin.predict(inputs)
 train_resid = X_t1 - train_pred
 train_rmse = float(np.sqrt(np.mean(train_resid ** 2)))
 
+A_spectral = float(np.linalg.norm(A_hat, ord=2))
+B_l2       = float(np.linalg.norm(B_hat))
+
 print(f"Twin training RMSE (state-averaged):  {train_rmse:.3f}")
-print(f"|A| spectral radius:                  {np.linalg.norm(A_hat, ord=2):.3f}")
-print(f"|B| (action sensitivity, L2):         {np.linalg.norm(B_hat):.3f}")"""),
+print(f"|A| spectral radius:                  {A_spectral:.3f}")
+print(f"|B| (action sensitivity, L2):         {B_l2:.3f}")
+print()
+
+if A_spectral < 1.0:
+    print(f"  -> |A| < 1: rollouts are bounded (errors decay). Safe for multi-step planning.")
+elif A_spectral < 1.05:
+    print(f"  -> |A| ~ 1: marginally stable; small errors persist over the horizon.")
+else:
+    print(f"  -> |A| > 1: rollouts diverge over time. Long-horizon planning is NOT trustworthy.")"""),
+
+md("""**Inspect $A$ directly.** A heatmap of the $41 \\times 41$ coefficient matrix makes the coupling structure visible — diagonal dominance means each state mostly evolves from itself, while strong off-diagonal blocks mean cross-coupling between process variables (e.g., reactor temperature driving downstream pressure)."""),
+
+code("""fig, axes = plt.subplots(1, 2, figsize=(11, 4.5),
+                          gridspec_kw={'width_ratios': [4, 1]})
+
+im = axes[0].imshow(A_hat, cmap='RdBu_r', vmin=-1, vmax=1, aspect='auto')
+axes[0].set_title(r'$A_{ij}$ — linear contribution of state $j$ at $t$ to state $i$ at $t+1$')
+axes[0].set_xlabel('Input state component (at $t$)')
+axes[0].set_ylabel('Output state component (at $t+1$)')
+fig.colorbar(im, ax=axes[0])
+
+axes[1].barh(np.arange(len(B_hat)), B_hat, color='C2')
+axes[1].set_title(r'$B_i$ — per-step action effect on state $i$')
+axes[1].set_xlabel('Coefficient')
+axes[1].set_yticks([])
+axes[1].axvline(0, color='k', linewidth=0.5)
+
+plt.tight_layout()
+plt.show()
+
+# Quick sanity check on diagonal dominance
+diag_strength = float(np.abs(np.diag(A_hat)).mean())
+offdiag_strength = float(np.abs(A_hat - np.diag(np.diag(A_hat))).mean())
+print(f'Mean |diagonal| of A:      {diag_strength:.3f}  (state-self-persistence)')
+print(f'Mean |off-diagonal| of A:  {offdiag_strength:.3f}  (cross-state coupling)')
+print(f'Diagonal dominance ratio:  {diag_strength / max(offdiag_strength, 1e-9):.1f}x')
+print()
+print(f'B vector summary: max |B_i| = {float(np.abs(B_hat).max()):.3f}, '
+      f'mean |B_i| = {float(np.abs(B_hat).mean()):.3f}')
+top_b = np.argsort(np.abs(B_hat))[::-1][:3]
+print(f'Top-3 state components most affected by the action:')
+for i in top_b:
+    print(f'  {state_cols[i]:<12}  B = {float(B_hat[i]):+.3f}')"""),
+
+md("""**Read the heatmap.** A strong diagonal (deep red along $A_{ii}$) means each XMEAS variable's next value is largely determined by its current value — physical inertia. Off-diagonal red/blue patches show cross-couplings: a high temperature in one reactor zone propagating to a pressure reading in the next stage, etc. The $B$ panel on the right shows where the IDV(1) action actually pushes the state: small magnitudes mean the linear twin is barely seeing the action, and any policy that differs from the random behaviour will be mis-ranked."""),
 
 md("""## Part 3 — Validate the twin: roll forward under the candidate's actions
 
@@ -123,7 +187,17 @@ order = np.argsort(rmse_per_state)[::-1]
 for i in order[:5]:
     print(f"  {state_cols[i]:<12}  RMSE = {rmse_per_state[i]:.3f}")"""),
 
-md("""**Why validation RMSE differs from training RMSE.** Training error is a one-step-ahead residual; validation here is a *multi-step rollout* whose errors compound. A modest one-step error can grow over 500 steps if the twin's $A$ matrix has eigenvalues close to or above 1 (unstable / weakly damped). The chapter's §12.5 calls this the twin's *stability* property — distinct from its single-step calibration."""),
+md("""**Why validation RMSE differs from training RMSE — and why this is the most important number in the lab.**
+
+The training RMSE you saw in Part 2 measured *one-step-ahead* residuals: at each step the twin saw the *true* $X_t$ and was asked to predict $X_{t+1}$. The twin's worst case there is essentially its OLS residual.
+
+The validation RMSE you just printed is measuring something fundamentally harder. We *did not* feed the twin the true state at each step — we fed it *the twin's own previous prediction*. So a small one-step error at step 1 becomes the input to step 2's prediction, which adds its own one-step error, which feeds step 3, and so on:
+
+$$\\hat{X}_{t+1} = A \\hat{X}_t + B a_t + \\mathrm{bias}, \\qquad \\hat{X}_0 = X_0.$$
+
+Errors compound by the factor $\\|A\\|_2$ per step. Over a 500-step horizon, even a small one-step error can amplify dramatically if $\\|A\\|_2$ is anywhere near 1.
+
+The chapter calls this the twin's **stability** property. It is distinct from one-step calibration and it is what *actually* matters for using the twin to plan. A twin that nails one-step prediction and explodes by step 200 is not a usable planning tool. A twin with mediocre one-step error but bounded multi-step rollouts is the safer choice."""),
 
 md("""## Part 4 — Use the twin to predict policy returns
 

@@ -86,7 +86,13 @@ print()
 top_sensor = ranked[0][0]
 print(f"Naive intervention reading: 'control {top_sensor} to reduce failures'.")"""),
 
-md("""**Stop and read this output before continuing.** The naive ML pipeline has just told us which sensor to control. But: what would happen if we walked into the fab tomorrow and tightened the spec on that sensor? Would yield improve? The classifier doesn't know — it knows the sensor *predicts* failures, not whether *intervening on* the sensor would *cause* fewer failures. That's the gap Lab 1A taught us about. Now we have to confront it on real data."""),
+md("""**Stop and read this output before continuing.** The naive ML pipeline has just told us which sensor to control. But: what would happen if we walked into the fab tomorrow and tightened the spec on that sensor? Would yield improve? The classifier doesn't know — it knows the sensor *predicts* failures, not whether *intervening on* the sensor would *cause* fewer failures. That's the gap Lab 1A taught us about. Now we have to confront it on real data.
+
+**Why naive ML's top feature is *generally* not a causal driver — the omitted-variable picture.** If $Z$ is an unmeasured confounder (something that causes both the sensor reading $X$ and the outcome $Y$), and we regress $Y$ on $X$ alone, the coefficient $\\hat{\\beta}$ picks up not just the direct $X \\to Y$ effect $\\beta_{X \\to Y}$ but also the back-door $X \\leftarrow Z \\to Y$ path. Algebraically:
+
+$$\\hat{\\beta} \\;\\to\\; \\beta_{X \\to Y} \\;+\\; \\frac{\\mathrm{cov}(X, Z)}{\\mathrm{var}(X)} \\cdot \\beta_{Z \\to Y}.$$
+
+The second term is the omitted-variable bias. If $X$ and $Z$ correlate strongly (which is common in a manufacturing line where everything is co-driven by calendar, ambient conditions, and supplier rotations), even a small $\\beta_{Z \\to Y}$ inflates $\\hat{\\beta}$ substantially. The ML pipeline cannot tell the two terms apart from passive data. The chapter's back-door adjustment removes exactly the second term when $Z$ is *measured*."""),
 
 md("""## Part 3 — The assumed DAG
 
@@ -140,15 +146,22 @@ for s in sensor_cols:
 results = pd.DataFrame(rows).sort_values("shrinkage", ascending=False)
 print(results.to_string(index=False, float_format=lambda x: f"{x:+.4f}"))"""),
 
-md("""**Read the `shrinkage` column.** Sensors with shrinkage ≥ 0.5 lose at least half their apparent effect after period adjustment — calibration drift / supplier rotation / seasonality explains most of the raw correlation. Sensors with shrinkage near 0 hold their effect under adjustment; those are the candidates for a real causal relationship under the assumed DAG.
+md("""**Read the `shrinkage` column with these anchors.**
+
+Shrinkage is defined as $1 - |\\hat{\\beta}_{\\text{adjusted}}| / |\\hat{\\beta}_{\\text{naive}}|$. It measures the fraction of the naive effect that disappears once we block the period back-door:
+
+- **Shrinkage near 0** (the adjusted coefficient is roughly as large as the naive). The naive correlation was *not* mostly period-confounded. The sensor is a *candidate* for a real causal driver under the assumed DAG. (Not proof — Part 5 stresses what else could explain it.)
+- **Shrinkage around 0.5**. About half of the naive correlation came from period. The remaining effect is still nontrivial but only half of what the predictive model claimed.
+- **Shrinkage ≥ 0.8**. The naive coefficient was almost entirely period-confounded. A "control this sensor" recommendation based on the naive number would be acting on calendar drift, not a sensor-yield mechanism.
+- **Shrinkage near 1.0 or negative**. The effect collapsed to zero or *flipped sign* — Simpson's paradox in miniature. The naive number had the wrong direction; without period adjustment, the engineering recommendation would have made things worse.
 
 The naive ML pipeline pointed us at the sensor with the largest |coefficient|. Compare: does that sensor survive period adjustment, or does it shrink?"""),
 
 md("""## Part 5 — Sensitivity: how strong would an unmeasured confounder have to be?
 
-Even the sensors that survive period adjustment might be confounded by something *we did not measure* — operator skill, vacuum-pump age, the specific spec sheet of the wafer lot. The Cinelli-Hazlett robustness value (Chapter 13 preview) asks: how strong would such a hidden confounder need to be to fully explain away our estimate?
+Even the sensors that survive period adjustment might be confounded by something *we did not measure* — operator skill, vacuum-pump age, the specific spec sheet of the wafer lot. The Cinelli-Hazlett robustness value (developed in full in Lab 13B) asks: how strong would such a hidden confounder need to be to fully explain away our estimate?
 
-For a quick approximation on the surviving top sensor, we benchmark against `period` itself — if the partial-R² of period on `yield_fail` is 0.05, an unmeasured confounder would need *at least* comparable strength to neutralize a similar-magnitude estimate."""),
+The full RV machinery uses partial $R^2$ of the confounder with both treatment and outcome. As a quick *upper bound* on its strength here, we measure how much of $Y$'s variance the *known* confounder `period` explains — i.e., the partial $R^2$ of period on `yield_fail`. **An unmeasured confounder would need to be at least as strong as period along both legs (period→sensor and period→Y) to wipe out the surviving sensor effect entirely.** If `period_r2` is small, the bar for an unmeasured confounder is low, and the surviving effect is fragile. If `period_r2` is large, the bar is high, and the effect survives plausible hidden confounding."""),
 
 code("""# Pick the survivor with the largest period-adjusted coefficient
 results_clean = results.dropna(subset=["period_adj_coef"])
@@ -193,7 +206,7 @@ md("""## Reflection
 
 md("""## What's next
 
-Lab 2B uses Bosch Production Line Performance data to demonstrate the back-door criterion in a multi-stage line context — same five-step skeleton, different DAG, different adjustment set."""),
+Lab 2B uses AI4I 2020 milling-machine data (CC BY 4.0, named physical features) to demonstrate the back-door criterion in a setting where the DAG can be defended from physics rather than asserted — same five-step skeleton, different DAG, different adjustment set."""),
 ]
 
 write_notebook(pathlib.Path(__file__).parent.parent / "ch01" / "lab01b.ipynb", cells)

@@ -91,7 +91,18 @@ The real test is Part 4: build a separate target-half estimate and compare to th
 
 md("""## Part 3 — Diagnose covariate distribution shift
 
-Transportability fails when the covariate distribution shifts. Quantify the shift with the *standardised mean difference* (SMD) per sensor: $|\\bar{X}_{tgt} - \\bar{X}_{src}| / \\sqrt{(s_{src}^2 + s_{tgt}^2)/2}$. SMD > 0.25 is the conventional threshold for non-trivial shift."""),
+Transportability fails when the covariate distribution shifts. Quantify the shift with the *standardised mean difference* (SMD) per sensor:
+
+$$\\mathrm{SMD} = \\frac{|\\bar{X}_{\\text{tgt}} - \\bar{X}_{\\text{src}}|}{\\sqrt{(s_{\\text{src}}^2 + s_{\\text{tgt}}^2)/2}}.$$
+
+**Why SMD > 0.25 is the conventional cutoff.** SMD is a *unitless effect-size* measure — the same scale as Cohen's $d$. The thresholds come from causal-inference practice (Stuart 2010, Austin 2011):
+
+- **SMD < 0.10**: distributions are essentially identical; covariate shift is negligible.
+- **0.10 ≤ SMD < 0.25**: marginal shift; the source-fit estimate transports with light reweighting.
+- **0.25 ≤ SMD < 0.50**: substantive shift; reweighting is necessary, and the source-fit may be biased without it. This is the conventional alarm threshold.
+- **SMD ≥ 0.50**: severe shift; the source and target populations may not even *share support* on this variable. Reweighting may fail; restrict the deployment to the overlap region or run a fresh target-period estimate.
+
+These thresholds are heuristics, not laws — but they tell you *which sensors* to investigate before pretending the source estimate transports."""),
 
 code("""def smd(a, b):
     return float(abs(a.mean() - b.mean()) / np.sqrt((a.var(ddof=1) + b.var(ddof=1)) / 2))
@@ -126,7 +137,13 @@ print(f"Relative gap:                {100*rel_gap:.1f}%   (>30% suggests substan
 
 md("""## Part 5 — Reweighted transport
 
-If the covariate distribution shifted (Part 3) but the SCM is otherwise the same, reweighting source observations by $w(z) = p_{tgt}(z) / p_{src}(z)$ recovers a target-domain estimate from source data. We approximate the density ratio with a classifier trained to distinguish source from target rows."""),
+If the covariate distribution shifted (Part 3) but the SCM is otherwise the same, reweighting source observations by $w(z) = p_{\\text{tgt}}(z) / p_{\\text{src}}(z)$ recovers a target-domain estimate from source data.
+
+**How a classifier gives us the density ratio (without estimating either density).** Estimating $p_{\\text{tgt}}(z)$ and $p_{\\text{src}}(z)$ separately is hard in high dimensions. The trick: pool source and target rows, fit a classifier $r(z) = P(\\text{source} \\mid z)$, and read off the ratio from a one-line Bayes-rule derivation:
+
+$$\\frac{p_{\\text{tgt}}(z)}{p_{\\text{src}}(z)} \\;=\\; \\frac{P(\\text{tgt} \\mid z)}{P(\\text{src} \\mid z)} \\cdot \\frac{P(\\text{src})}{P(\\text{tgt})} \\;\\propto\\; \\frac{1 - r(z)}{r(z)}.$$
+
+The prior ratio $P(\\text{src})/P(\\text{tgt})$ is a constant that affects only the overall scale; once we re-normalise weights (or use the relative ratio in a downstream regression), it drops out. This trick — *density-ratio estimation by classification* — is the workhorse for covariate-shift correction, importance-weighted ERM, and modern causal-inference reweighting in general (Sugiyama et al., 2012). It is also why a small logistic regression is enough here: we are not estimating the densities themselves, just their ratio."""),
 
 code("""# Build the classifier-based density ratio: r(z) = p(source=1 | z) -> w(z) = (1-r)/r
 both = pd.concat([
@@ -210,7 +227,7 @@ md("""## Reflection
 
 md("""## What's next
 
-This concludes the SECOM Lab B arc. The remaining Lab Bs (2B, 4B, 6B, 10B on Bosch; 7B on LFP batteries; 8B on Backblaze; 11B, 12B on Tennessee Eastman) carry the same five-step skeleton — load, frame, identify, estimate, sensitivity — to datasets with different structures (multi-stage lines, time-varying treatments, simulator output)."""),
+This concludes the Lab B arc. Across the thirteen Lab Bs, the dataset palette covers SECOM (1B, 3B, 5B, 9B, 13B), AI4I 2020 (2B), LFP batteries (4B, 6B, 7B), Backblaze drive SMART telemetry (8B, 10B), and the Tennessee Eastman simulator (11B, 12B). Every notebook walks the same five-step skeleton — load, frame, identify, estimate, sensitivity — and produces the *defensible report* that a domain team would actually act on, not a predictive number stripped of identifiability context."""),
 ]
 
 write_notebook(pathlib.Path(__file__).parent.parent / "ch13" / "lab13b.ipynb", cells)

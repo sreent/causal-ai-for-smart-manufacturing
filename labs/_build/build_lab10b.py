@@ -91,17 +91,40 @@ print(f"Relative risk        = {p_y1_given_x1 / p_y1_given_x0:.1f}x")"""),
 
 md("""## Part 3 — Mediation formula (plug-in)
 
-The *natural direct effect* (NDE) and *natural indirect effect* (NIE) under the standard no-unmeasured-confounding assumptions (Pearl 2001, VanderWeele 2015) are:
+**The "two worlds, three scenarios" intuition.** Before writing formulas, here is the counterfactual framing the formulas are operationalising. Pearl's (2001) decomposition imagines *three* parallel worlds for each drive:
 
-$$\\mathrm{NDE} \\;=\\; \\sum_{m} \\big[ P(Y=1 \\mid X=1, M=m) - P(Y=1 \\mid X=0, M=m) \\big] \\, P(M=m \\mid X=0),$$
+| Scenario | What we set | What $M$ does | Outcome we observe |
+|----------|-------------|---------------|--------------------|
+| World A (untreated) | $X = 0$ | $M$ takes its natural $X=0$ value: $M(0)$ | $Y(0, M(0))$ |
+| World B (treated) | $X = 1$ | $M$ takes its natural $X=1$ value: $M(1)$ | $Y(1, M(1))$ |
+| Hybrid (counterfactual) | $X = 1$ | $M$ is *forced* to its $X=0$ value: $M(0)$ | $Y(1, M(0))$ |
 
-$$\\mathrm{NIE} \\;=\\; \\sum_{m} P(Y=1 \\mid X=1, M=m) \\, \\big[ P(M=m \\mid X=1) - P(M=m \\mid X=0) \\big],$$
+The total effect is World B − World A: $\\mathrm{TE} = E[Y(1, M(1))] - E[Y(0, M(0))]$.
 
-$$\\text{and } \\mathrm{TE} \\;=\\; \\mathrm{NDE} + \\mathrm{NIE}.$$
+We decompose this by inserting the **Hybrid** in the middle:
 
-The NDE shifts $X$ from 0 to 1 while *holding the mediator distribution at its $X=0$ value* — i.e., asks "what would happen to Y if we increased X but kept M at its untreated baseline?" The NIE shifts the mediator distribution from its $X=0$ value to its $X=1$ value while *holding $X$ at 1* — i.e., asks "of the change in Y from setting X=1, how much came from M moving in response to X?"
+- **Natural direct effect (NDE)** = Hybrid − World A = $E[Y(1, M(0))] - E[Y(0, M(0))]$ — the change in $Y$ from flipping $X$ alone, with the mediator pinned at its untreated value. *"What is the effect of treatment that goes around the mediator?"*
+- **Natural indirect effect (NIE)** = World B − Hybrid = $E[Y(1, M(1))] - E[Y(1, M(0))]$ — the change in $Y$ from letting the mediator move from $M(0)$ to $M(1)$, with $X$ held at 1. *"What is the effect of treatment that goes through the mediator?"*
 
-For binary $X$ and binary $M$ the formulas are exact cell-arithmetic — no model required."""),
+By construction, $\\mathrm{NDE} + \\mathrm{NIE} = \\mathrm{TE}$ — the Hybrid term cancels.
+
+**Why the Hybrid world is observable from data even though we can't run it.** Under the three no-unmeasured-confounding assumptions (X-Y, M-Y, X-M all unconfounded given observed covariates — see Part 6), $E[Y(1, M(0))]$ equals an average of the *observed* $E[Y \\mid X = 1, M = m]$ weighted by the *observed* distribution of $M$ at $X = 0$. That averaging is what the formulas below compute.
+
+**The formulas.**
+
+$$\\mathrm{NDE} \\;=\\; \\sum_{m} \\underbrace{\\big[ P(Y=1 \\mid X=1, M=m) - P(Y=1 \\mid X=0, M=m) \\big]}_{\\text{$X$ effect on $Y$ at fixed $m$}} \\, \\underbrace{P(M=m \\mid X=0)}_{\\text{weight from untreated $M$ dist}},$$
+
+$$\\mathrm{NIE} \\;=\\; \\sum_{m} \\underbrace{P(Y=1 \\mid X=1, M=m)}_{\\text{$Y$ at treated $X$, fixed $m$}} \\, \\underbrace{\\big[ P(M=m \\mid X=1) - P(M=m \\mid X=0) \\big]}_{\\text{shift in $M$ dist from $X = 0$ to $X = 1$}}.$$
+
+For binary $X$ and binary $M$ each formula has two terms (one for $m = 0$, one for $m = 1$) and is exact cell-arithmetic — no model required.
+
+**Worked tiny example.** Imagine a population where $P(M=1 \\mid X=0) = 0.1$, $P(M=1 \\mid X=1) = 0.6$ (treatment really pushes the mediator), and the outcome probabilities are: $P(Y=1 \\mid X=0, M=0) = 0.05$, $P(Y=1 \\mid X=0, M=1) = 0.30$, $P(Y=1 \\mid X=1, M=0) = 0.20$, $P(Y=1 \\mid X=1, M=1) = 0.45$.
+
+- $\\mathrm{NDE} = (0.20 - 0.05) \\times 0.9 + (0.45 - 0.30) \\times 0.1 = 0.135 + 0.015 = 0.150$.
+- $\\mathrm{NIE} = 0.20 \\times (0.4 - 0.9) + 0.45 \\times (0.6 - 0.1) = -0.100 + 0.225 = 0.125$.
+- Total = 0.150 + 0.125 = **0.275**, which matches $E[Y(1)] - E[Y(0)]$ computed directly.
+
+The code below does exactly this arithmetic on our Backblaze cells."""),
 
 code("""def cell_prob(df, x, m, target):
     sub = df[(df['X'] == x) & (df['M'] == m)]
@@ -230,7 +253,16 @@ The NDE / NIE identifiability rests on three no-unmeasured-confounding assumptio
 
 The $M$-$Y$ assumption is the most vulnerable. There may be an unobserved drive-level state $U$ — physical operating temperature, age, vibration history — that drives *both* the SMART_197 reading and the eventual failure even at fixed SMART_5. If so, the observed (M, Y) association inflates the *causal* M→Y effect, and the NDE shrinks toward TE while the NIE shrinks toward zero.
 
-A simple sensitivity model (Imai, Keele, Yamamoto 2010): assume $U$ enters the outcome model linearly with effect $\\gamma$ on the logit scale, and adjusts $P(Y \\mid X, M)$ accordingly. We sweep $\\gamma$ and trace how NDE / NIE move."""),
+A simple sensitivity model (Imai, Keele, Yamamoto 2010): assume $U$ enters the outcome model linearly with effect $\\gamma$ on the logit scale, and adjusts $P(Y \\mid X, M)$ accordingly. We sweep $\\gamma$ and trace how NDE / NIE move.
+
+**Anchoring $\\gamma$ to something concrete.** $\\gamma$ is the log-odds effect of the unmeasured $U$ on $Y$; we re-parametrise it via $\\alpha = 1 - e^{-\\gamma}$, which is the *fraction of the observed M=1 vs M=0 excess in $Y$-rate that we are attributing to $U$ rather than to $M$*:
+
+- $\\gamma = 0$ ($\\alpha = 0$): no unmeasured confounding; recover the plug-in.
+- $\\gamma = 1$ ($\\alpha = 0.63$): a moderately strong $U$ that explains ~⅔ of the M=1 vs M=0 excess in failure rate.
+- $\\gamma = 2$ ($\\alpha = 0.86$): a very strong $U$ — would double the odds of Y (an effect size that would itself be diagnosable by domain experts).
+- $\\gamma = 4$ ($\\alpha = 0.98$): essentially attribute the entire M=1 vs M=0 outcome gap to $U$, leaving $M$ with almost no causal role.
+
+For SMART telemetry on a single drive model, $\\gamma > 2$ is implausible — drive-firmware vintage, temperature, vibration would each have to be doing the work that pending sectors visibly do, and they would have been spotted by Backblaze's reliability team."""),
 
 code("""def sensitivity_sweep(df, gamma_range):
     \"\"\"Re-compute NDE/NIE assuming an unmeasured U with effect gamma on Y.
@@ -277,7 +309,14 @@ The NDE marginalises over $M$'s untreated distribution. A simpler sanity-check i
 
 $$\\mathrm{CDE}(m) \\;=\\; P(Y = 1 \\mid X = 1, M = m) - P(Y = 1 \\mid X = 0, M = m).$$
 
-If CDE(M=0) — the effect of SMART_5 on failure *among drives with no pending sectors* — is substantial, the direct path is real. If it is near zero, the entire effect must run through $M$."""),
+If CDE(M=0) — the effect of SMART_5 on failure *among drives with no pending sectors* — is substantial, the direct path is real. If it is near zero, the entire effect must run through $M$.
+
+**Anchoring the CDE magnitude on the risk-difference scale.** The baseline failure rate in the (X=0, M=0) cell is ~2% (the actuarial background). A CDE of:
+
+- **≤ +5 percentage points** would be small — comparable to noise in a typical drive cohort and would be consistent with "all of $X$'s effect runs through $M$".
+- **+5 to +20 percentage points** is moderate — there is a real direct path, but $M$ remains the dominant route.
+- **+20 to +50 percentage points** is large — the direct path is the dominant route (this is what we expect for SMART_5 → failure in our Backblaze subset).
+- **+50 percentage points or more** is enormous in absolute terms — the chain hypothesis is essentially broken; $M$ may be a marker, not a mechanism."""),
 
 code("""CDE_m0 = py_x1m0 - py_x0m0
 CDE_m1 = py_x1m1 - py_x0m1

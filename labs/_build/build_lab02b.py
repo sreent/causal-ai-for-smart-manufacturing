@@ -107,11 +107,17 @@ md("""## Part 3 — The assumed DAG (defended from physics)
 - *torque → tool_wear*: physical wear accumulates faster under load.
 - *temperatures → rot_speed_rpm*: thermal-management adjustments are real; not all sites do this but it is a plausible confounder.
 
-**Back-door identification.** Under this DAG, to estimate the effect of `rot_speed_rpm` on `failure`, we need to block every back-door path. The set $Z = \\{\\text{type, tool\\_wear, torque, air\\_temp, process\\_temp}\\}$ blocks every back-door path while not lying on the direct rot_speed → failure path. Conditioning on $Z$ identifies the causal effect under the assumed DAG."""),
+**Back-door identification — a 30-second refresher.** A set $Z$ satisfies the back-door criterion for $X \\to Y$ if (1) no node in $Z$ is a descendant of $X$, and (2) $Z$ d-separates $X$ from $Y$ in the modified graph where the outgoing edges from $X$ are removed. The intuition is "$Z$ blocks every non-causal path from $X$ to $Y$ that goes 'around the back'". The set $Z = \\{\\text{type, tool\\_wear, torque, air\\_temp, process\\_temp}\\}$ satisfies both conditions for our DAG. None of these is downstream of speed (condition 1); each non-direct path from speed to failure goes through one of them as a chain or collider that conditioning blocks (condition 2)."""),
 
 md("""## Part 4 — Adjusted logistic regression
 
-We binarise the treatment at its sample median to mirror the chapter's `high` vs `low` convention (the median split keeps roughly equal exposure groups, which helps with positivity)."""),
+**Why binarise the treatment at the median.** The chapter's worked examples target a binary $A \\in \\{0, 1\\}$ — a single counterfactual contrast (high vs low rotational speed). Three reasons we choose *median* specifically:
+
+1. **Equal exposure groups by construction.** $P(A=1) \\approx 0.5$ guarantees the propensity $e(z) = P(A=1 \\mid Z=z)$ stays bounded away from 0 and 1 across most of $Z$-space. That keeps the back-door identification numerically stable (positivity holds with margin).
+2. **Process-meaningful when no spec is given.** A real engineering analysis would dichotomise at a control-chart specification limit (e.g., "above the upper warning line"). AI4I's CC-BY codebook does not publish a tighter spec, so median is the conservative default — it tests the *direction* of the effect at the centre of the operating envelope, not at a particular limit.
+3. **Comparable to the chapter's high/low convention.** Lab 2A uses median splits; using the same convention here keeps the two labs methodologically aligned.
+
+The trade-off: binarising coarsens a continuous treatment. The ATE we estimate is the population-average effect of *crossing the median*, not of a specific RPM increment. A continuous-treatment version (with dose-response surfaces) is Lab 6B's territory."""),
 
 code("""speed_threshold = float(df["rot_speed_rpm"].median())
 T = (df["rot_speed_rpm"] >= speed_threshold).astype(int).values
@@ -149,7 +155,9 @@ print(f"Shrinkage from naive to adjusted:   {100*shrinkage:.1f}%")"""),
 
 md("""**Read the shrinkage.** If the adjusted ATE is substantially smaller (in magnitude) than the naive ATE, the confounders $Z$ accounted for most of the apparent speed–failure relationship — i.e., the naive coefficient was capturing back-door paths, not the direct effect. If the adjusted ATE is comparable to or larger than the naive, the confounders are *not* explaining the relationship away, and the direct effect under the assumed DAG is real.
 
-A sign flip between naive and adjusted (Simpson's paradox in this data) is *also* possible and worth checking — it would mean the unadjusted estimate had the wrong direction."""),
+A sign flip between naive and adjusted (Simpson's paradox in this data) is *also* possible and worth checking — it would mean the unadjusted estimate had the wrong direction.
+
+**A common surprising pattern in AI4I.** Operators *slow down worn tools* to avoid catastrophic failures. That induces a negative naive correlation between RPM and failure: high RPM correlates with healthy tools, low RPM with worn tools. The naive coefficient absorbs that backwards-feeling correlation. After adjusting for tool_wear (which we are doing), the direct RPM → failure effect can swing back toward positive (mechanical stress at high speed). If the adjusted estimate has a *different sign* from the naive estimate, you are seeing exactly this back-door inversion — *the operator's compensating behaviour was confounding the analysis*."""),
 
 md("""## Part 5 — Sensitivity: adjustment-set robustness
 
@@ -178,11 +186,16 @@ rows = [{"adjustment_set": name, "ATE": adjusted_ate(cols), "|Z|": len(cols)}
 results = pd.DataFrame(rows)
 print(results.to_string(index=False, float_format=lambda x: f"{x:+.4f}"))"""),
 
-md("""**The right way to read the table.**
+md("""**The right way to read the table — concrete criteria for "stable" vs "drifting".**
 
-- If the ATE estimate is *stable* across the alternative adjustment sets, the result is not driven by any one choice of $Z$.
-- If different adjustment sets give substantially different estimates, the DAG matters — and a process engineer should weigh in on which adjustment set best matches the actual data-generating mechanism.
-- The *direction* (sign) is the most defensible thing across reasonable specifications; the *magnitude* requires the right DAG."""),
+| Pattern across rows | Interpretation | Action |
+|---|---|---|
+| All adjusted estimates within ~0.5 percentage points and same sign | Robust. Conclusion does not depend on the specific adjustment-set choice. | Report the full-DAG number; note the agreement. |
+| Sign consistent but magnitude varies 2-3× across alternatives | Direction is robust; magnitude is not. | Report a *range*, not a point estimate. The right adjustment set is the one a domain expert defends. |
+| Sign flips between alternatives (Simpson-style) | The DAG is doing all the work. | Stop and resolve the DAG question with a process engineer *before* publishing any estimate. |
+| Naive row is far from all adjusted rows | Back-door adjustment matters. | Naive coefficient is what a predictive pipeline would have reported; the adjusted rows show what the chapter's machinery contributes. |
+
+The naive row at the top of the table is the **null hypothesis for the value of back-door adjustment**. If the adjusted rows are indistinguishable from it, the confounders weren't doing much. If they are different, the chapter's machinery is the explanation."""),
 
 md("""## Part 6 — Decision
 

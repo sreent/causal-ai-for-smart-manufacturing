@@ -65,10 +65,20 @@ naive = sm.OLS(df["yield_fail"].values,
 naive_coef = float(naive.params[1])
 naive_se   = float(naive.bse[1])
 
-print(f"Naive OLS (no adjustment):")
+# Reference: with period observed (the "gold standard" we are pretending not to have).
+_period_dummies = pd.get_dummies(df["period"], drop_first=True).astype(float)
+_X_with_period  = sm.add_constant(np.hstack([df[["X"]].values, _period_dummies.values]))
+_ref = sm.OLS(df["yield_fail"].values, _X_with_period).fit()
+_ref_coef = float(_ref.params[1])
+
+print(f"Naive OLS (no adjustment, what an analyst without period sees):")
 print(f"  coef on X = {naive_coef:+.5f}  (SE {naive_se:.5f})")
-print(f"  Interpretation: a 1-unit increase in X is associated with")
-print(f"  a {naive_coef:+.5%} change in failure probability.")"""),
+print()
+print(f"Reference OLS (Y ~ X + period dummies, period observed):")
+print(f"  coef on X = {_ref_coef:+.5f}")
+print()
+print(f"Period-confounding bias in the naive estimate: {naive_coef - _ref_coef:+.5f}")
+print(f"  -> this is the gap front-door must close, working only from X, M, Y.")"""),
 
 md("""**The trap.** Without `period`, this regression cannot distinguish three explanations:
 
@@ -89,15 +99,31 @@ md("""## Part 3 — The stipulated DAG and the front-door criterion
    (assumption: U does NOT affect M except through X)
 ```
 
-The front-door criterion (Pearl 1995) says: if a set of nodes M *intercepts* the entire directed path from X to Y, *no element of M is a descendant of X via a confounded path*, and *every back-door from X to M is blocked by X itself*, then $P(Y \\mid do(X))$ is identified by the front-door formula even when U is unobserved.
+**What the front-door criterion asks of $M$, in plain English.** Pearl (1995) gives three conditions; each translates to a question we can ask about *our* candidate mediator:
 
-**For our stipulated chain:** the assumption that lets us proceed is *U → M is blocked by X*. Concretely, this means the period-driven mechanism that pushes both X and Y up or down does *not* leak into M except by first changing X. That assumption is *not testable from the data* — it must be argued from process knowledge.
+1. **$M$ intercepts every directed path from $X$ to $Y$.**
+   *Translation:* the entire causal effect of $X$ on $Y$ flows through $M$. There is no $X \\to Y$ direct arrow.
+   *Our SECOM check:* we are assuming no upstream-sensor path to yield exists except via the candidate mediator. We cannot verify this; it is part of the stipulation.
 
-If we accept the stipulation, the **front-door formula** for a continuous chain (linearised) is:
+2. **No element of $M$ is a descendant of $X$ via a confounded path.**
+   *Translation:* the latent confounder $U$ does *not* affect $M$ (except possibly through $X$).
+   *Our SECOM check:* we are assuming the calibration / period drift does not directly push the mediator's reading. This is the *most fragile* assumption and the one the Part 6 sensitivity check stresses.
 
-$$\\text{ATE}(X \\to Y) = \\frac{\\partial M}{\\partial X} \\cdot \\frac{\\partial Y}{\\partial M\\,\\vert\\,X}$$
+3. **Every back-door path from $X$ to $M$ is blocked by $X$ itself.**
+   *Translation:* once we know $X$, there is no other variable confounding $M$.
+   *Our SECOM check:* given the sensor $X$, the candidate mediator $M$ depends only on the chemical chain we hypothesise. Plausible for sensor-to-sensor relationships in a tightly controlled process.
 
-— the indirect effect through M, computed as the product of two regression slopes."""),
+If all three conditions hold, $P(Y \\mid \\mathrm{do}(X))$ is identified by the front-door formula *even though $U$ is unobserved*. This is the surprising piece: front-door buys us identification without measuring $U$, at the cost of stronger assumptions about the role of $M$.
+
+**Where the two-stage formula comes from.** Pearl's original $\\mathrm{do}$-calculus derivation yields:
+
+$$P(Y \\mid \\mathrm{do}(X)) = \\sum_m P(M = m \\mid X) \\sum_{x'} P(Y \\mid X = x', M = m) \\, P(X = x').$$
+
+The first sum says "track the mediator distribution that the *intervention* on $X$ induces"; the second sum says "average the outcome over the *natural* distribution of $X$, holding $M$ fixed". For continuous $X$ and $M$ under a linear ansatz, the formula collapses to a **product of two regression slopes**:
+
+$$\\mathrm{ATE}(X \\to Y) = \\underbrace{\\frac{\\partial M}{\\partial X}}_{\\text{Stage 1: how strongly $X$ pushes $M$}} \\;\\times\\; \\underbrace{\\frac{\\partial Y}{\\partial M \\, \\vert \\, X}}_{\\text{Stage 2: how strongly $M$ pushes $Y$, with the confounded $X$-path blocked}}.$$
+
+**Why Stage 2 conditions on $X$ (not just $Y$ on $M$).** If we regressed $Y$ on $M$ alone, the slope would include the back-door $M \\leftarrow X \\leftarrow U \\rightarrow Y$ path (since $X$ confounds $M$ and $Y$ through the unobserved $U$). Including $X$ in the Stage-2 regression blocks that back-door at $X$ — which condition 3 of the criterion guarantees is sufficient. Without the $+X$ term, front-door collapses to a biased product of two confounded slopes."""),
 
 md("""## Part 4 — Front-door estimate via two-stage regression"""),
 
@@ -164,21 +190,24 @@ code("""stage2_with_period = sm.OLS(
     sm.add_constant(np.hstack([df[["M", "X"]].values, period_dummies.values])),
 ).fit()
 d_Y_on_M_robust = float(stage2_with_period.params[1])
+rel_shift = abs(d_Y_on_M_robust - d_Y_on_M) / max(abs(d_Y_on_M), 1e-12)
 
 print(f"Stage-2 slope dY/dM | X         = {d_Y_on_M:+.5f}")
 print(f"Stage-2 slope dY/dM | X, period = {d_Y_on_M_robust:+.5f}")
-print(f"Shift from adding period to Stage-2: {(d_Y_on_M_robust - d_Y_on_M):+.5f}")
+print(f"Shift from adding period to Stage-2: {(d_Y_on_M_robust - d_Y_on_M):+.5f}  ({100*rel_shift:.1f}% of original)")
 print()
-print(f"If the shift is small (<10% of the original slope), the front-door")
-print(f"assumption (period does not leak into M) is at least consistent with")
-print(f"the data. If it is large, period IS leaking and front-door identification")
-print(f"is compromised.")"""),
+print('Reading the shift:')
+print('  < 10% : front-door assumption (period does NOT leak into M) is consistent with the data.')
+print('  10-30%: marginal -- period may have a small mediator-confounding effect; report the front-door')
+print('          estimate with a wider uncertainty band.')
+print('  > 30% : period IS leaking into the M-Y arc; front-door identification is compromised; either')
+print('          pick a different M or admit the chain cannot be defended on this dataset.')"""),
 
 md("""## Part 7 — Decision
 
 Three bullets, the deliverable a process engineer would read:
 
-1. **Under the stipulated chain, the front-door estimate of X's effect on yield is X.X (95% CI [...])**. This number is *only as defensible as the chain itself*: a process engineer must look at sensor IDs `{df.attrs['x_sensor']}` and `{df.attrs['m_sensor']}` and confirm or reject the proposed physical path. If they reject it, the estimate is meaningless and should be withdrawn.
+1. **Under the stipulated chain, the front-door estimate of X's effect on yield is the Part-4 number reported above (with its 95% CI)**. This number is *only as defensible as the chain itself*: a process engineer must look at the sensor IDs recorded in `df.attrs['x_sensor']` and `df.attrs['m_sensor']` and confirm or reject the proposed physical path. If they reject it, the estimate is meaningless and should be withdrawn.
 
 2. **Comparison to back-door (when period is observed) gives a sanity check**, but does not validate the stipulation in production — production scenarios are exactly the ones where the would-be back-door variable is *not* available, so the comparison only tells us about the lab setting.
 

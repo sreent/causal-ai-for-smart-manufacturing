@@ -51,9 +51,23 @@ df["batch_idx"] = pd.Categorical(df["batch"], categories=["train", "test1", "tes
 print(f"Cells: {len(df)}")
 print(df.groupby("batch")[["log_var_deltaQ", "cycle_life"]].agg(["mean", "std"]).round(2).to_string())"""),
 
-md("""## Part 2 — Marginal (pooled) effect: the ATE baseline
+md("""## Background — the meta-learner zoo in 90 seconds
 
-A single linear regression of `cycle_life` on `log_var_deltaQ` gives the pooled effect — the average across all batches. This is the chapter's S-learner with no covariates."""),
+Chapter 6 introduces several CATE estimators with overlapping names. Here is the taxonomy as a glance-table so the next four Parts have semantic anchors:
+
+| Name | What it fits | What heterogeneity it can capture |
+|------|---------------|-----------------------------------|
+| **S-learner** | A *single* outcome model $\\hat{\\mu}(T, X)$ that takes the treatment $T$ as one of its features | Heterogeneity only where the *single* model bends across $X$. If we use a linear $\\hat{\\mu}$, S-learner gives a constant CATE (no heterogeneity). |
+| **T-learner** | *Two* outcome models, one for treated and one for control: $\\hat{\\mu}_1(X)$, $\\hat{\\mu}_0(X)$. The CATE is the difference. | Heterogeneity in either arm shows up; small-sample arms can overfit independently. |
+| **X-learner** | T-learner plus a cross-fit residual correction. Good when treated/control arm sizes are imbalanced. | Same as T-learner but with variance reduction on the smaller arm. |
+| **DR-learner / DML** | Fit the propensity $\\hat{e}(X)$ and outcome $\\hat{\\mu}_a(X)$ as nuisances, plug into the doubly-robust score, then regress the score on the heterogeneity features. Cross-fit. | Robust to nuisance misspecification (one of the two has to be right). The chapter's preferred estimator. |
+| **Causal Forest** | Honest random-forest split criterion targeting the CATE rather than the outcome | Nonparametric, scales to many heterogeneity features; can find non-linear modifiers. |
+
+For this lab, **batch is the heterogeneity feature**. We compare two estimators: the T-learner (fit one slope per batch) and DML-CATE (combine cross-fit nuisance models with batch as the modifier). Agreement between them is the chapter's preferred robustness signal.
+
+## Part 2 — Marginal (pooled) effect: the ATE baseline
+
+A single linear regression of `cycle_life` on `log_var_deltaQ` gives the pooled effect — the average across all batches. This is the chapter's S-learner with the simplest possible covariate set (none). Since the model is linear and there is no $T \\times X$ interaction, the S-learner here gives a *constant* effect — no heterogeneity. It is our ATE baseline."""),
 
 code("""ols = LinearRegression().fit(df[["log_var_deltaQ"]].values, df["cycle_life"].values)
 print(f"Pooled slope dY/dX:  {float(ols.coef_[0]):+.1f} cycles per unit log_var_deltaQ")
@@ -78,6 +92,13 @@ print()
 print(f"Max - min slope across batches: {per_batch_df['slope'].max() - per_batch_df['slope'].min():+.1f} cycles per unit")"""),
 
 md("""## Part 4 — DML-CATE via EconML
+
+**Where DML-CATE actually differs from the T-learner.** Both estimators give a per-batch slope. They differ in two ways:
+
+1. **Nuisance handling.** T-learner fits a separate OLS per batch and uses *only* `log_var_deltaQ` as a feature. DML first residualises both $Y$ and $T$ on the other covariates ($W$ = the remaining capacity-summary features) — *removing the variance those covariates explain in both* — and then fits the CATE on the residuals. The Frisch-Waugh-Lovell decomposition is the algebraic identity behind this; the practical effect is that nuisance variance no longer inflates the CATE's standard error.
+2. **Cross-fitting.** DML fits nuisances on $K-1$ folds and predicts on the held-out fold, rotating. T-learner uses the same data for fit and prediction. Without cross-fitting, regularisation bias from the nuisance models leaks into the CATE; with it, the CATE remains asymptotically unbiased.
+
+When does this matter? In small samples with many controls. With 124 LFP cells and only two extra controls, DML's variance reduction is modest. With 50,000 wafers and 200 sensor features, it is the difference between a usable estimate and an unstable one.
 
 DML treats `log_var_deltaQ` as the treatment, `batch_idx` as the heterogeneity feature, and any remaining controls (here: the other capacity-summary features) as nuisances. The CATE function returned is conditional on batch."""),
 
@@ -123,11 +144,18 @@ compare["pooled_ATE"] = float(ols.coef_[0])
 compare["disagreement"] = compare["T_learner"] - compare["DML_CATE"]
 print(compare.to_string(index=False, float_format=lambda x: f"{x:+.1f}"))"""),
 
-md("""**How to read the comparison.**
+md("""**How to read the comparison — concrete agreement criteria.**
 
-- If T-learner and DML-CATE *agree* per batch and *differ from the pooled ATE*, the heterogeneity is real and well-identified.
-- If they disagree, the DML version's variance-reducing nuisance correction is doing something the within-batch OLS missed — most likely controlling for the other capacity features acting as confounders.
-- If both equal the pooled ATE within sampling error, there is no meaningful batch-level heterogeneity and the chapter's CATE machinery is overkill here."""),
+Both estimators target the same per-batch CATE. Use the DML CI from Part 4 as the *scale of meaningful disagreement* and apply these thresholds:
+
+| Pattern | Interpretation |
+|---------|----------------|
+| T-learner and DML-CATE within **0.5 CI widths** per batch, both differ from pooled by > 1 CI width | Real heterogeneity, well-identified. Report the per-batch CATEs. |
+| Within 0.5 CI widths but indistinguishable from pooled | No meaningful batch-level heterogeneity; pooled ATE is fine. CATE machinery was overkill here. |
+| Disagreement of 1-2 CI widths | DML's nuisance correction is doing something the within-batch OLS missed. Report DML as the principled estimator and T-learner as the simple-model reference. |
+| Disagreement > 2 CI widths | One of the two is misspecified. Most likely culprit: small per-batch sample sizes drive T-learner to high variance, OR the other capacity controls are themselves effect modifiers DML is mis-handling. Don't trust either point estimate; use the DML *bounds* and call out the disagreement. |
+
+The CI in the Part-4 table is the right scale. *Differences relative to it* matter, not absolute slope values."""),
 
 md("""## Part 6 — Decision
 
