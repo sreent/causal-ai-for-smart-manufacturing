@@ -236,6 +236,17 @@ else:
     print('  Period contribution is near zero -- this wafer was flagged for per-wafer')
     print('  reasons unrelated to the upstream period regime.')"""),
 
+md("""**Why this matters — the §14.5 lesson on real data.**
+
+Chapter 14's worked example (§14.5) showed a wafer where the upstream variable $G$ contributed +0.90 to the flag — almost the entire score. The engineer's action was clear: investigate gas flow. On real SECOM data, the most-confidently-flagged wafer often falls in a *different* regime: its sensor values are extreme, but most of that extremeness is in the *residual* (per-wafer noise from manufacturing variability, microscopic contamination, sensor jitter) rather than in the *period-explained* portion. The counterfactual contribution to period is small; the engineer's action is *not* to investigate the period regime.
+
+This is the canonical case where **per-unit counterfactual attribution diverges from population-level attribution**. Across the flagged population (Part 6), period contributes ~+0.17 on average; but for *this specific wafer* it contributes ~0. Both findings are correct and complementary — they answer different questions:
+
+- *Population:* "Across our 366 flagged wafers, what fraction of the flag rate is driven by the period regime?" → ~17%.
+- *This wafer:* "For wafer $i$, what fraction of *its* flag was driven by the period regime?" → near 0.
+
+A real-world QC pipeline reports both: a population-level recommendation (e.g., "calibrate the period drift") and a per-wafer recommendation (e.g., "this wafer is a per-unit outlier; investigate its specific run conditions")."""),
+
 md("""## Part 5 — Contrast with SHAP attribution
 
 SHAP attributes the flag score to the *features the classifier consumed* (the sensors). For our wafer, SHAP will say which sensor drove the flag — useful for debugging the model, but not directly actionable for the engineer. Counterfactual attribution says which *upstream variable* drove the flag — actionable, but only as good as the SCM."""),
@@ -319,11 +330,25 @@ ax.grid(alpha=0.3)
 plt.tight_layout()
 plt.show()
 
-# Disagreement: how often does SHAP's top feature NOT vary with period contribution?
-high_period_share = flagged['contribution'] > flagged['contribution'].quantile(0.5)
-n_top_feat_low_period  = int((~high_period_share).sum())
-print(f'Wafers where period drove > median of period-attributed score: {int(high_period_share.sum())}')
-print(f'Wafers where SHAP says \"sensor X\" but period contribution is low: {n_top_feat_low_period}')"""),
+# Disagreement diagnostic: for each flagged wafer, compute SHAP's *magnitude*
+# (the sum of |phi_j| across sensors) and the period counterfactual contribution.
+# A wafer with HIGH SHAP magnitude and LOW period contribution is one where the
+# model-explanation says "look at the sensors" but the causal attribution says
+# "period is not the actionable lever" -- exactly the divergence case.
+shap_magnitude = np.abs(shap_values.values[flagged.index]).sum(axis=1)
+flagged['shap_magnitude'] = shap_magnitude
+
+high_shap_low_period = ((flagged['shap_magnitude'] > flagged['shap_magnitude'].median())
+                        & (flagged['contribution'] < flagged['contribution'].median()))
+high_shap_high_period = ((flagged['shap_magnitude'] > flagged['shap_magnitude'].median())
+                         & (flagged['contribution'] > flagged['contribution'].median()))
+print(f\"High SHAP magnitude  +  HIGH period contribution: {int(high_shap_high_period.sum())} wafers\")
+print(f\"  -> model and causal attribution AGREE that the flag is real and actionable upstream.\")
+print()
+print(f\"High SHAP magnitude  +  LOW  period contribution: {int(high_shap_low_period.sum())} wafers\")
+print(f\"  -> model says 'the sensors matter' but counterfactual says 'period is not the cause'.\")
+print(f\"  -> These wafers' flags are NOT actionable via the period intervention; their per-wafer\")
+print(f\"     noise residuals (manufacturing variability, microscopic conditions) drove the flag.\")"""),
 
 md("""## Part 7 — Sensitivity: how robust is the attribution?
 

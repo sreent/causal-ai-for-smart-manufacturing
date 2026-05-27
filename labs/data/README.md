@@ -11,14 +11,25 @@ production-style mess. This document records, for every vendored dataset:
 
 | Dataset             | Domain                       | Vendored as                                   | Preprocessing script             | Used by             |
 |---------------------|------------------------------|-----------------------------------------------|----------------------------------|---------------------|
-| SECOM               | Semiconductor wafer yield    | `secom.zip`                                   | none (cleaning inside loader)    | 1B, 3B, 5B, 9B, 13B |
+| SECOM               | Semiconductor wafer yield    | `secom.zip`                                   | none (cleaning inside loader)    | 1B, 3B, 5B, 9B, 13B, 14B |
 | AI4I 2020           | Milling machine PdM          | `ai4i2020.csv`                                | none (UCI as-is)                 | 2B                  |
 | LFP batteries       | Lithium-ion cycle life       | `lfp_cell_summary.csv`, `lfp_cell_cycle.csv`  | **`lfp_preprocess.py`**          | 4B, 6B, 7B          |
 | Tennessee Eastman   | Chemical-process control     | `te_logged.csv`, `te_candidate.csv` + simulator | recipe below                   | 11B, 12B            |
 | Backblaze           | Hard-drive failure (SMART)   | `backblaze_subset.csv`                        | **`backblaze_preprocess.py`**    | 8B, 10B             |
+| OEE synthetic       | A x P x Q manufacturing KPI  | none (generator)                              | **`oee_synthetic.py`**           | capstone Starter E  |
+| Multi-site synthetic | Cross-plant transportability | none (generator)                              | **`multisite_synthetic.py`**     | capstone Starter F  |
 
-Loaders (`*_prep.py`) all expose a single public function (e.g. `load_secom`,
-`load_lfp`, `load_te`, `load_ai4i`, `load_backblaze`) returning a chapter-shaped
+The two **curated synthetic** generators at the bottom were planned in
+`book/COURSE_PLAN.md` §2 to expand the capstone palette where no public
+real dataset exposes the structure (a manipulable A x P x Q OEE
+decomposition; clean cross-site transportability with documented effect
+modifiers). Each ships an analytic ground truth in a `true_*()` helper
+so a capstone submission can validate its NDE/NIE or transported ATE
+against the SCM the data was generated from.
+
+Loaders (`*_prep.py`, `*_synthetic.py`) all expose a single public function
+(e.g. `load_secom`, `load_lfp`, `load_te`, `load_ai4i`, `load_backblaze`,
+`load_oee`, `load_multisite`) returning a chapter- or capstone-shaped
 DataFrame. Open the loader for the chapter-by-chapter slice definitions.
 
 ---
@@ -244,6 +255,71 @@ backblaze_subset.csv  (42 050 rows × 10 columns)
   failure within the remaining window.
 - **Lab 10B (mediation).** `smart_5_raw` → `smart_197_raw` → `failure`,
   with a sensitivity analysis for unmeasured drive-firmware confounding.
+
+---
+
+## OEE synthetic log — curated synthetic for multi-mediator capstones
+
+- **Source.** Generator script. No upstream data; the SCM is documented
+  in [`oee_synthetic.py`](./oee_synthetic.py)'s module docstring.
+- **License.** MIT (with the rest of the repo).
+- **Vendored.** No CSV is shipped — the generator runs in a few
+  milliseconds on demand. Deterministic given a fixed seed.
+- **Used by.** Capstone Starter E (see `labs/CAPSTONE.md`).
+
+### Structure
+
+Per-shift DataFrame with columns `shift_id, line_id, program, A, P, Q, OEE`
+across four production lines. `program` is the maintenance-program
+intervention; A/P/Q are the three OEE drivers (Availability ×
+Performance × Quality); `OEE = A × P × Q`. The SCM has no direct
+`program → OEE` edge — every effect of the intervention flows through
+one of the three drivers, which makes the dataset a textbook
+multi-mediator NDE/NIE decomposition target.
+
+### Why curated synthetic
+
+A real OEE log with a controllable maintenance intervention requires
+internal CMMS access. Public analogs (MetroPT) have time-series
+structure but no documented program rollout. The closest public proxy
+that includes a documented intervention with clean A/P/Q decomposition
+*does not exist*. Curated synthetic with a documented SCM gives the
+capstone what no real dataset can: a *verifiable* ground truth for
+the mediation decomposition, exposed via
+`oee_synthetic.true_oee_decomposition()`.
+
+---
+
+## Multi-site synthetic — curated synthetic for transportability capstones
+
+- **Source.** Generator script. No upstream data; the SCM is documented
+  in [`multisite_synthetic.py`](./multisite_synthetic.py)'s module
+  docstring.
+- **License.** MIT.
+- **Vendored.** No CSV — generator runs on demand; deterministic given
+  a fixed seed.
+- **Used by.** Capstone Starter F.
+
+### Structure
+
+Per-unit DataFrame with columns `unit_id, site, raw_grade, treatment,
+outcome`. Two sites A and B share the same SCM in symbolic form; only
+the distribution of the `raw_grade` effect modifier differs (Beta(2,5)
+at site A vs Beta(5,2) at site B). The treatment effect scales linearly
+with `raw_grade`, so the ATE differs between sites by construction
+(~0.21 at A, ~0.39 at B). The capstone question: estimate ATE at
+source, transport to target via reweighting, validate against the
+direct target estimate.
+
+### Why curated synthetic
+
+Cross-site manufacturing data with documented effect modifiers is
+almost always internal. Public multi-site datasets either aggregate
+sites (losing the modifier structure) or anonymise sites (preventing
+domain-grounded transport arguments). Curated synthetic with a known
+modifier structure gives the capstone what real data cannot: a
+*verifiable* ground truth for the transported estimate, exposed via
+`multisite_synthetic.true_ate_per_site()`.
 
 ---
 
