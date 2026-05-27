@@ -26,7 +26,7 @@ The setup is the one a data-centre operator faces every week: you observe SMART 
 
 md("""## What this lab is *not* doing
 
-- **Validating a real replacement policy on operational data.** The synthesised actions are a teaching device — Backblaze never actually replaced these drives on our schedule.
+- **Validating a real replacement policy on operational data.** The synthesised actions are a teaching device — Backblaze never actually replaced these drives on our schedule. We assign $A_1, A_2 \\sim \\mathrm{Bernoulli}(0.5)$ to give Q-learning the action coverage it needs; under $A = 1$ we counterfactually substitute "successful replacement". Off-policy evaluation under a *non-uniform* logged behaviour policy (with propensity-overlap diagnostics, IPS / SNIPS / DR estimators) is the territory of **Chapter 11 / Lab 11B**. If you want to estimate a *learned* DTR's expected return from a real maintenance team's logged decisions, that is the workflow.
 - **Predicting individual drive failures.** Q-learning is choosing actions, not fitting a survival model.
 - **Using all of the SMART vector.** We use the cumulative max of `smart_5_raw` (Reallocated Sectors) and `smart_197_raw` (Pending Sectors) at each stage. The chapter's R-learner / A-learning extensions could use the full SMART vector; we keep things to two interpretable features so the decision boundary is visualisable."""),
 
@@ -373,7 +373,9 @@ md("""## Reflection
 
 md("""## What's next
 
-Lab 10B uses the same Backblaze panel for a *mediation* analysis: of SMART_5's effect on failure, how much flows through SMART_197 and how much is direct? Where 8B finds the policy that minimises cost given the SMART chain, 10B asks *which links* in the chain carry the signal."""),
+Lab 10B uses the same Backblaze panel for a *mediation* analysis: of SMART_5's effect on failure, how much flows through SMART_197 and how much is direct? Where 8B finds the policy that minimises cost given the SMART chain, 10B asks *which links* in the chain carry the signal.
+
+For the *informative-behaviour-policy* case (replacing the synthesised $\\mathrm{Bernoulli}(0.5)$ with a real maintenance team's logged decisions), the methodology lives in **Lab 11B** — per-step IPS / SNIPS / DR with propensity-overlap diagnostics, on the Tennessee Eastman simulator. Reading 8B + 11B together gives the full DTR-learning-and-evaluation pipeline: 8B is *learn the policy*, 11B is *value it without deploying*."""),
 ]
 
 write_notebook(pathlib.Path(__file__).parent.parent / "ch08" / "lab08b.ipynb", cells)
