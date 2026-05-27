@@ -14,12 +14,12 @@ Click any **Open In Colab** badge to launch the notebook.
 | Chapter | Lab A (synthetic — method) | Lab B (real data — report) | Lab B dataset |
 |---|---|---|---|
 | 1 | [Lab 1](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch01/lab01.ipynb)   — high-AUC trap | [Lab 1B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch01/lab01b.ipynb)  — naive ML vs back-door on SECOM | SECOM |
-| 2 | [Lab 2](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch02/lab02.ipynb)   — SCMs and back-door | Lab 2B (planned)  — multi-stage back-door on Bosch PLP | Bosch PLP |
+| 2 | [Lab 2](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch02/lab02.ipynb)   — SCMs and back-door | [Lab 2B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch02/lab02b.ipynb)  — back-door on AI4I milling machine | AI4I 2020 |
 | 3 | [Lab 3](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch03/lab03.ipynb)   — front-door and do-calculus | [Lab 3B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch03/lab03b.ipynb)  — front-door on a stipulated SECOM chain | SECOM |
-| 4 | [Lab 4](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch04/lab04.ipynb)   — IV, DID, RDD | Lab 4B (planned)  — phased station rollout on Bosch PLP | Bosch PLP |
+| 4 | [Lab 4](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch04/lab04.ipynb)   — IV, DID, RDD | [Lab 4B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch04/lab04b.ipynb)  — DID across Severson 2019 LFP batches | LFP batteries |
 | 5 | [Lab 5](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch05/lab05.ipynb)   — G-comp, IPW, AIPW, DML | [Lab 5B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch05/lab05b.ipynb)  — DML on SECOM with four-estimator diagnostics | SECOM |
-| 6 | [Lab 6](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch06/lab06.ipynb)   — CATE and meta-learners | Lab 6B (planned)  — CATE per station on Bosch PLP | Bosch PLP |
-| 7 | [Lab 7](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch07/lab07.ipynb)   — time-varying treatments | Lab 7B (planned)  — fast-charge policy effect on cycle life | LFP batteries (Severson et al. 2019) |
+| 6 | [Lab 6](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch06/lab06.ipynb)   — CATE and meta-learners | [Lab 6B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch06/lab06b.ipynb)  — CATE of the Severson feature, batch as effect modifier | LFP batteries |
+| 7 | [Lab 7](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch07/lab07.ipynb)   — time-varying treatments | [Lab 7B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch07/lab07b.ipynb)  — time-varying capacity-drop exposure on LFP cycle life | LFP batteries |
 | 8 | [Lab 8](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch08/lab08.ipynb)   — dynamic regimes | Lab 8B (planned)  — replacement / migration DTR under degradation | Backblaze Drive Stats |
 | 9 | [Lab 9](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch09/lab09.ipynb)   — causal discovery | [Lab 9B](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch09/lab09b.ipynb)  — PC on a 15-sensor SECOM slice | SECOM |
 | 10 | [Lab 10](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch10/lab10.ipynb) — mediation, RCA, FDC | Lab 10B (planned)  — multi-stage FDC on Bosch PLP | Bosch PLP |
@@ -34,9 +34,10 @@ Five datasets cover all 13 chapters; most appear across 2-6 Lab Bs so students d
 | Dataset | Type | Lab Bs | Source |
 |---|---|---|---|
 | **SECOM** | Real measurements | 1B, 3B, 5B, 9B, 13B | UCI ML Repo (semiconductor fab) |
-| **Bosch PLP** | Real measurements | 2B, 4B, 6B, 10B | Kaggle competition (Bosch production line) |
-| **LFP batteries** | Real measurements | 7B | Severson et al. 2019 / `data.matr.io/1/` (124 Li-ion cells, 72 fast-charge protocols, RUL = cycles-to-EOL) |
-| **Backblaze Drive Stats** | Real measurements | 8B | backblaze.com/cloud-storage/resources/hard-drive-test-data (200k+ drives, daily SMART telemetry, observed failures) |
+| **AI4I 2020** | Synthetic-but-named-semantics | 2B | Matzka 2020 / UCI ML Repo 601 (milling machine, 10k samples, 5 failure modes, CC BY 4.0). Vendored in `labs/data/ai4i2020.csv` |
+| **LFP batteries** | Real measurements | 4B, 6B, 7B | Severson et al. 2019 (124 LFP cells), pre-processed via Mattia 2021's MIT-licensed [revisit-severson-et-al](https://github.com/petermattia/revisit-severson-et-al) repo into ~560 KB of summary + per-cycle CSVs vendored in `labs/data/` |
+| **Backblaze Drive Stats** | Real measurements | 8B, 10B (planned) | backblaze.com/cloud-storage/resources/hard-drive-test-data (200k+ drives, daily SMART telemetry, observed failures) |
+| **Bosch PLP** *(dropped)* | Real measurements | — | Kaggle competition (Bosch production line); 14GB + Kaggle gate. Replaced by AI4I/LFP/Backblaze. |
 | **Tennessee Eastman** | Simulator (canonical digital twin) | 11B, 12B | Downs & Vogel via [`tep2py`](https://github.com/camaramm/tep2py); two trajectories pre-generated in `labs/data/`, Fortran source vendored under `labs/data/te_simulator/` for re-simulation |
 | **MVTec AD** | Real images | 14B (frontier chapter) | MVTec research (industrial visual inspection) |
 
@@ -83,13 +84,17 @@ labs/
 ├── data/
 │   ├── secom_prep.py          # load_secom(chapter=N) returns the pre-cleaned slice for that lab
 │   ├── secom.zip              # vendored UCI SECOM data
+│   ├── ai4i_prep.py           # load_ai4i(chapter=N) for Lab 2B (milling machine)
+│   ├── ai4i2020.csv           # vendored AI4I 2020 (CC BY 4.0, 520 KB)
 │   ├── te_prep.py             # load_te(scenario) for Labs 11B/12B
 │   ├── te_logged.csv          # pre-generated TE trajectory under Bernoulli(0.5) IDV(1)
 │   ├── te_candidate.csv       # pre-generated TE trajectory under IDV(1) = 0 always
 │   ├── te_simulator/          # vendored tep2py (Fortran source + Python wrapper) for re-simulation
-│   ├── bosch_prep.py          # (planned)
-│   ├── cmapss_prep.py         # (planned)
-│   ├── mvtec_prep.py          # (planned)
+│   ├── lfp_prep.py            # load_lfp(chapter=N) for Labs 4B/6B/7B
+│   ├── lfp_cell_summary.csv   # 124 cells × 7 cols (cycle_life, log_var_deltaQ, ...)
+│   ├── lfp_cell_cycle.csv     # 12,276 rows × 6 cols (per-cycle capacity trajectories)
+│   ├── backblaze_prep.py      # (planned) load_backblaze for Labs 8B/10B
+│   ├── mvtec_prep.py          # (planned) Lab 14B vision
 │   └── cache/                 # downloaded data, gitignored
 └── _build/
     ├── build_lab01.py ... build_lab13.py      # Lab A source-of-truth
