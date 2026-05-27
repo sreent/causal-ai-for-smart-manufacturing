@@ -8,7 +8,7 @@ Usage:
         code("import numpy as np\nprint('hello')"),
         ...
     ]
-    write_notebook("lab01.ipynb", cells)
+    write_notebook("lab01_high_auc_trap.ipynb", cells)
 """
 import json
 from pathlib import Path
