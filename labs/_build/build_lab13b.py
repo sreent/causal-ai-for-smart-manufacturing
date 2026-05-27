@@ -85,9 +85,11 @@ print(f"Source model's implied target failure rate:   {implied_target_rate:.3%}"
 print(f"Actual target failure rate:                   {actual_target_rate:.3%}")
 print(f"Implied - actual:                             {(implied_target_rate - actual_target_rate):+.3%}")"""),
 
-md("""**Read the implied-vs-actual gap.** If the source model under-predicts target failures, the population shifted in a direction that makes the source-fit too optimistic. If it over-predicts, the opposite. A near-zero gap is the *necessary but not sufficient* condition for transportability — the marginal target rate could match while the *effect estimate* doesn't.
+md("""**Read the implied-vs-actual gap on the *probability scale*, not the coefficient scale.** A small gap (within a couple of percentage points of the actual target rate) is a *necessary-but-not-sufficient* condition for transportability — the marginal target rate could match while the *effect estimate* still fails to transport. A *large* gap is a red flag that should be inspected before any other diagnostic.
 
-The real test is Part 4: build a separate target-half estimate and compare to the source-fit estimate directly."""),
+**On this SECOM split the gap is enormous.** The source-fit model predicts a target failure rate of ~36 % while the observed target failure rate is ~4 % — a +32 percentage-point over-prediction. That is *not* "near zero" by any standard; it directly says the source population's relationship between sensors and yield does not generalise to the target population's. Don't read this Part-2 result as a "sanity check passed"; it is a sanity check *failed*, with the diagnostic value of telling you to expect Parts 4-5 to confirm non-transportability.
+
+The real test (a head-to-head coefficient comparison) is in Part 4. Use Part 3's covariate-shift table to *localise* the cause of the Part-2 gap; use Part 5 to ask whether reweighting closes it; use Part 6 to bound the residual under unmeasured-confounder assumptions."""),
 
 md("""## Part 3 — Diagnose covariate distribution shift
 

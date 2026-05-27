@@ -205,13 +205,15 @@ print('          pick a different M or admit the chain cannot be defended on thi
 
 md("""## Part 7 — Decision
 
-Three bullets, the deliverable a process engineer would read:
+Three bullets, the deliverable a process engineer would read.
 
-1. **Under the stipulated chain, the front-door estimate of X's effect on yield is the Part-4 number reported above (with its 95% CI)**. This number is *only as defensible as the chain itself*: a process engineer must look at the sensor IDs recorded in `df.attrs['x_sensor']` and `df.attrs['m_sensor']` and confirm or reject the proposed physical path. If they reject it, the estimate is meaningless and should be withdrawn.
+**A caveat from Part 6's sensitivity check.** On this particular SECOM slice, the Part-6 shift comes in around 60-70 % of the original Stage-2 slope, which the threshold table flags as *"period IS leaking into the M-Y arc; front-door identification is compromised"*. That verdict drives the bullets below — under the observed data, this is a *negative finding* on transportability of the front-door machinery to SECOM, not a defensible estimate.
 
-2. **Comparison to back-door (when period is observed) gives a sanity check**, but does not validate the stipulation in production — production scenarios are exactly the ones where the would-be back-door variable is *not* available, so the comparison only tells us about the lab setting.
+1. **Under the stipulated chain, the front-door point estimate of X's effect on yield is the Part-4 number reported above (with its 95% CI), but the sensitivity check in Part 6 says it should NOT be acted on.** The 60-70 % shift in Stage 2 when period is added directly contradicts the assumption that period does not leak into the mediator path. A process engineer reading this report should treat the estimate as *the answer the front-door machinery would have given if the stipulated chain were defensible* — useful as a methodological demonstration, not as a deployment input.
 
-3. **A defensible front-door analysis on SECOM would require: (a)** a process flow diagram identifying which sensors lie on the chemical path to yield, **(b)** a substantive argument that the candidate mediator's *only* upstream confounder route is through X, and **(c)** a robustness check across plausible alternative chains. This lab demonstrates the mechanics; it does not deliver any of (a), (b), (c)."""),
+2. **Comparison to back-door (when period is observed) gives a sanity check**, but does not validate the stipulation in production — production scenarios are exactly the ones where the would-be back-door variable is *not* available. The fact that on this lab data the back-door coefficient and the front-door product land at similar small magnitudes is at best weak evidence; under the failed sensitivity check, they could also both be biased in the same direction.
+
+3. **A defensible front-door analysis on SECOM would require: (a)** a process flow diagram identifying which sensors lie on the chemical path to yield, **(b)** a substantive argument that the candidate mediator's *only* upstream confounder route is through X, and **(c)** a robustness check across plausible alternative chains. This lab demonstrates the mechanics; it does not deliver any of (a), (b), (c), and Part 6 makes that gap concrete by showing the period-leaks-into-M failure mode in numbers."""),
 
 md("""## Reflection
 
@@ -221,7 +223,7 @@ md("""## Reflection
 
 md("""## What's next
 
-Lab 4B uses instrumental-variable identification — a third strategy alongside back-door and front-door — applied to Bosch Production Line Performance data, where a phased calibration rollout creates the IV structure."""),
+Lab 4B applies **difference-in-differences** identification to the Severson 2019 LFP-battery cell data — a third strategy alongside back-door and front-door. The natural-experiment structure there is the three Severson collection batches receiving overlapping-but-distinct fast-charge protocols at different points in time; the DID identification rests on the parallel-trends assumption between batches in the pre-treatment window."""),
 ]
 
 write_notebook(pathlib.Path(__file__).parent.parent / "ch03" / "lab03b.ipynb", cells)
