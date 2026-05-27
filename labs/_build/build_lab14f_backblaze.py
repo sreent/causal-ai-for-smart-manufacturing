@@ -279,7 +279,19 @@ for c_F in [10, 100, 1000]:
 ```
 """),
 
-md("""**Discussion.** As $c_F / c_R$ rises, the optimal threshold *falls* — the cost of waiting (in-service failure) outweighs the cost of pre-emptive replacement at lower and lower severity levels. At $c_F / c_R = 10$ only drives with multiple visible warnings get replaced; at $c_F / c_R = 1000$ the policy approaches "replace all warned drives" and may even cross into "replace any drive at risk"."""),
+md("""**Discussion — read the cost-sweep output carefully, since the threshold can degenerate.**
+
+As $c_F / c_R$ rises, the Q-learning decision boundary moves toward more aggressive pre-emptive replacement. At low cost ratios the threshold sits inside the severity range (e.g., $c_F / c_R = 10$ gives a stage-1 threshold around severity > 0.68, equivalent to raw SMART ≳ 1). At high cost ratios the boundary leaves the range entirely: the threshold-extractor returns `None` because the curve $Q_t(s, \\text{replace}) - Q_t(s, \\text{wait})$ no longer crosses zero — *replace* dominates at every observable severity. That is the optimal answer (replace-everywhere is cheaper than accepting $c_F = 1000$ failure costs on the small subset that would fail), but the *threshold* no longer parameterises it.
+
+So the empirical sweep on this Backblaze subset shows three regimes, not a smooth threshold migration:
+
+| $c_F / c_R$ | Optimal policy regime | Threshold reported |
+|---|---|---|
+| 1-10 | Threshold-based — replace only drives with severity above a learned cutoff | $\\approx 0.27$ - $0.68$ in log-severity |
+| ~30-100 | Threshold collapses; *replace-everywhere* dominates "wait" on every observable state | `None` |
+| 100+ | Replace-everywhere is strictly optimal | `None` |
+
+If your team is choosing between a 10:1, 100:1, or 1000:1 cost regime, the deliverable is *which regime your operational cost ratio actually inhabits* — and whether the Q-learning policy in that regime is still meaningfully different from a much simpler "replace any drive with severity > 0" or "replace all" rule. On this dataset the threshold-based and Q-learning policies *agree exactly* at $c_F/c_R = 10$ because no drive's severity falls between 0 and the learned threshold; Q-learning's value-add at that ratio is the *diagnosis that the rule is correct*, not the rule itself. At higher ratios, the answer "replace everywhere" is itself the policy."""),
 
 md("""## Artifact 5 — Sensitivity Analysis
 

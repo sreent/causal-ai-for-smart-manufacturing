@@ -212,7 +212,20 @@ print(f'Disagreement: {ATE_seq - one_shot_implied:+.1f} cycles')
 ```
 """),
 
-md("""**Discussion.** The chapter-7 lesson: the *direction* of disagreement is a diagnostic. If sequential is more negative than one-shot, the time-varying machinery is correctly attributing the time-shifted confounder to the treatment path (which one-shot misses). The headline ATE for deployment should be the sequential ICE number; the one-shot is the simpler-but-biased reference."""),
+md("""**Discussion — interpret the *direction* of disagreement.**
+
+Two pieces of evidence together pin down the right interpretation:
+
+1. *Step-1 coefficient on $A_1 \\to L_2$ (printed in the ICE fit):* is it sizable or near-zero? This tells you whether past treatment shifts the next-period confounder *mechanistically* — i.e., whether the time-varying-confounding structure is meaningfully present in this dataset.
+2. *Sign and magnitude of sequential − one-shot:* this is the empirical correction the sequential machinery applies on top of the cross-sectional estimate.
+
+**Reading the cases:**
+
+- **Sequential more negative than one-shot, with $A_1 \\to L_2$ coefficient sizable.** The one-shot estimator was *under-stating* the harm of high-drop exposure: it conditioned on the *observed* $L_2$ (which already reflects the damage from $A_1$), partially adjusting away the very effect we want to measure. The sequential ICE is the correct, larger estimate.
+- **Sequential less negative than one-shot, with $A_1 \\to L_2$ coefficient sizable.** The one-shot estimator was *over-stating* the harm: it failed to credit the time-varying confounder with the part of the variance the sequential approach correctly assigns to $L_2$'s natural drift. The sequential ICE is the correct, smaller estimate.
+- **Sequential ≈ one-shot, regardless of sign.** The chain is weak; treatment doesn't materially shift the next-period confounder; the one-shot estimator is a defensible approximation.
+
+In every case, **the sequential ICE estimate is the principled headline number for the deployment decision**, with the one-shot serving as the simpler-but-coarser reference. The disagreement (whether sequential is *more* or *less* extreme) is the *diagnostic* about how much time-varying machinery actually buys you on this dataset."""),
 
 md("""### Q4.3 Report the four-trajectory counterfactual table.
 

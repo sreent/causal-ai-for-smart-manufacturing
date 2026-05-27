@@ -227,7 +227,7 @@ print(df[[f'{s}_bin' for s in sensor_cols]].mean().round(3).to_string())
 ```
 """),
 
-md("""**Discussion.** Median split keeps the propensity bounded away from 0 and 1, which Artifact 4's IPW step needs. The `drop_first=True` in the dummy encoding avoids perfect collinearity in the regression."""),
+md("""**Discussion.** Median split produces roughly balanced exposure groups (P(X=1) ≈ 0.5), which *helps* but does not *guarantee* positivity — overlap still depends on the joint distribution of (X, Z). The explicit guarantee comes from the `np.clip(e, 0.05, 0.95)` step in Q4.2, which bounds the propensity away from {0, 1} before computing IPW weights. The `drop_first=True` in the dummy encoding avoids perfect collinearity in the regression."""),
 
 md("""### Q4.2 Implement the four-estimator gauntlet (G-comp, IPW, AIPW, DML).
 
@@ -406,6 +406,7 @@ if winner is not None:
     periods = sorted(df['period'].unique())
     src_mask = df['period'].isin(periods[:2])
     tgt_mask = df['period'].isin(periods[2:])
+    estimates = {}
     for label, mask in [('source', src_mask), ('target', tgt_mask)]:
         sub = df[mask]
         Xs = sub[f'{winner}_bin'].values
@@ -414,9 +415,22 @@ if winner is not None:
         Ys = sub['yield_fail'].values
         if (Xs == 0).sum() > 10 and (Xs == 1).sum() > 10:
             tg, ti, ta, sea, _ = four_estimators(Xs, Zs, Ys)
+            estimates[label] = ta
             print(f'  {label} AIPW for {winner}: {ta:+.4f} (SE {sea:.4f})')
+
+    if 'source' in estimates and 'target' in estimates and abs(estimates['source']) > 1e-9:
+        gap = estimates['source'] - estimates['target']
+        rel_gap = abs(gap) / abs(estimates['source'])
+        print(f'  Absolute gap (source - target): {gap:+.4f}')
+        print(f'  Relative gap: {100 * rel_gap:.1f}% of source estimate')
+        if rel_gap < 0.25:   verdict = 'supported (gap < 25%); recommendation transports'
+        elif rel_gap < 0.50: verdict = 'partial (25-50% gap); deploy to target with monitoring + pilot'
+        else:                verdict = 'FAILED (gap > 50%); estimate does NOT transport; refit on target before deployment'
+        print(f'  Transportability verdict: {verdict}')
 ```
 """),
+
+md("""**Discussion.** Lab 13B's rule of thumb: source-vs-target AIPW estimates within 25% of each other → transport is supported. The verdict directly informs deployment: if transport fails, the winner sensor's effect that the capstone identified on the full cohort cannot be claimed to generalise to the most recent calendar window. The team's options at that point are (a) refit the analysis on the latest period before deployment, or (b) recommend a controlled trial on the target period to settle the question."""),
 
 md("""### Q6.3 Name three deployment monitors with specific triggers.
 

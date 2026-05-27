@@ -48,7 +48,13 @@ df = load_oee(n_shifts=2000, seed=0)
 print(df.head(3).round(3).to_string())
 print()
 print(f'Program rate by line:')
-print(df.groupby('line_id')['program'].mean().round(3).to_string())"""),
+print(df.groupby('line_id')['program'].mean().round(3).to_string())
+print()
+print('Ground truth from the SCM (so you know what to recover in Q4.2):')
+for k, v in true_oee_decomposition().items():
+    print(f'  {k}: {v:+.5f}')"""),
+
+md("""**This dataset is curated synthetic.** Unlike the four real-data starters (SECOM, AI4I, LFP, Backblaze), the OEE log is generated from a fully documented structural causal model (the SCM is in `oee_synthetic.py`'s module docstring). That gives us something no real dataset can: an **analytic ground truth** for the NDE/NIE decomposition, exposed via `true_oee_decomposition()`. Your capstone's correctness is *verifiable* — if your estimator recovers those numbers within sampling error, you've done mediation correctly; if it doesn't, the disagreement points at a specific bug (mis-specified mediator regression, missing interaction term, wrong outcome model). Lean on this as a debugging aid — it is the main pedagogical asset of this starter."""),
 
 md("""## Artifact 1 — Problem Statement and DAG
 

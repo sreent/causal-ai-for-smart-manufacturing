@@ -44,7 +44,7 @@ import statsmodels.api as sm
 from sklearn.linear_model import LogisticRegression, LinearRegression
 
 rng = np.random.default_rng(0)
-df = load_multisite(n_per_site=1000, seed=0)
+df = load_multisite(n_per_site=3000, seed=0)   # n=3000 per site gives clean recovery of the tau(z) interaction
 print(f'Generated {len(df)} units; site distribution:\\n{df[\"site\"].value_counts().to_dict()}')
 print(f'\\nGround truth from SCM:')
 for k, v in true_ate_per_site().items():
@@ -223,7 +223,27 @@ print(f'\\nGap |reweighted - direct|: {abs(ate_A_transported - ate_B_direct):.4f
 ```
 """),
 
-md("""**Discussion.** The reweighting moves the source estimate from ATE_A (~0.21) toward ATE_B (~0.39) by accounting for Plant B's higher raw_grade distribution. If the reweighted estimate lands within 0.05 of the direct Plant-B estimate, the transportability is **clean** — Plant A's data was sufficient. If the gap exceeds 0.15, the structural assumptions failed somewhere; investigate which."""),
+md("""**Discussion — distinguish three numbers carefully.**
+
+The synthetic SCM (documented in `multisite_synthetic.py`) has analytically-known values:
+
+- $\\mathrm{ATE}_A^{\\text{true}} = +0.214$ (E[tau(z)] under Plant A's Beta(2,5) grade distribution).
+- $\\mathrm{ATE}_B^{\\text{true}} = +0.386$ (E[tau(z)] under Plant B's Beta(5,2) grade distribution).
+- A *correctly-transported* estimate from Plant A's data to Plant B's grade distribution should recover $\\mathrm{ATE}_B^{\\text{true}}$.
+
+Three *empirical* numbers your run produces:
+
+- **Plant-A naive** ≈ ATE_A (~0.21 at n_per_site=3000): the unadjusted Plant-A ATE; what you'd report if you ignored the grade distribution shift.
+- **Plant-A reweighted to B** (~0.34-0.38): the source data, reweighted to look like Plant B's grade distribution. *This is the transport estimate we want to validate.*
+- **Plant-B direct** ≈ ATE_B (~0.38): the gold-standard Plant-B ATE estimated from Plant B's own data (which would require Plant B to have run its own randomised arm).
+
+**The transportability verdict:**
+
+- If $|\\text{reweighted} - \\text{direct}| < 0.05$ → **transport supported.** Plant B can adopt without a separate trial.
+- If $0.05 \\leq \\text{gap} < 0.15$ → **partial transport.** Plant B should validate on a 100-200 unit pilot before full deployment.
+- If $\\text{gap} \\geq 0.15$ → **transport fails.** Plant B must run its own controlled trial.
+
+**Caveat on small-sample bias.** The reweighted estimator's variance depends on the *effective sample size* of the density-ratio weights. With Beta(2,5) → Beta(5,2) shift, the weights are heavy-tailed and ESS / N can be small (often < 10%). At n_per_site=1000 (the original default) the transported estimate under-shoots the truth by ~0.13 because the source-Plant-A linear-interaction fit is itself uncertain. The lab uses n_per_site=3000 so the interaction is cleanly identified (p<0.001 on the slope); a real Plant-A trial with similar grade-dispersion would need at least that many units."""),
 
 md("""## Artifact 5 — Sensitivity Analysis
 
