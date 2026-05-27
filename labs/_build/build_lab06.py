@@ -1,4 +1,4 @@
-"""Build labs/lab06.ipynb — CATE, meta-learners, causal forests, uplift."""
+"""Build labs/ch06/lab06.ipynb — CATE, meta-learners, causal forests, uplift."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 6 — CATE, Meta-Learners, Causal Forests, and Uplift
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab06.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch06/lab06.ipynb)
 
 **Companion lab to Chapter 6.** From average effects to *conditional* average effects: estimate how a recipe change's effect varies across the covariate space, fit the five meta-learners, deploy a causal forest with confidence intervals, and evaluate a targeted policy with a Qini curve.
 
@@ -419,5 +419,5 @@ md("""## What's next
 Lab 7 turns from a single intervention to *sequential* treatments — the time-varying setting where decisions repeat over time and the same machinery (G-formula, IPW, DR) generalizes."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab06.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch06" / "lab06.ipynb", cells)
 print("Built lab06.ipynb")

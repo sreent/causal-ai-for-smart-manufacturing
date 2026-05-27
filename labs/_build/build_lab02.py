@@ -1,4 +1,4 @@
-"""Build labs/lab02.ipynb — SCMs, DAGs, and the back-door criterion.
+"""Build labs/ch02/lab02.ipynb — SCMs, DAGs, and the back-door criterion.
 
 Uses the chapter's exact SCM and the same X3 -> Y identification target
 as Chapter 2's §2.9 worked example.
@@ -10,7 +10,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 2 — SCMs, DAGs, and the Back-Door Criterion
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab02.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch02/lab02.ipynb)
 
 **Companion lab to Chapter 2.** Construct the chapter's bracket-line SCM explicitly, verify d-separation by simulation, apply the back-door criterion to estimate the effect of weld current ($X_3$) on yield ($Y$), and watch what happens when you adjust on the wrong set.
 
@@ -349,5 +349,5 @@ md("""## What's next
 Lab 3 turns to identification when no valid back-door set exists — the front-door criterion. The mediator $M_2$, which was a *failure mode* for $X_3$ in this lab, becomes the *enabler* of identification for $X_2$ in the next."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab02.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch02" / "lab02.ipynb", cells)
 print("Built lab02.ipynb")

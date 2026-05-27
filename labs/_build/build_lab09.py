@@ -1,4 +1,4 @@
-"""Build labs/lab09.ipynb — Causal discovery on tabular data."""
+"""Build labs/ch09/lab09.ipynb — Causal discovery on tabular data."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 9 — Causal Discovery on Tabular Process Data
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab09.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch09/lab09.ipynb)
 
 **Companion lab to Chapter 9.** Run constraint-based discovery (PC, FCI), score-based discovery (GES), and continuous-optimization discovery (NOTEARS) on the chapter's manufacturing-flow SCM. Diagnose how each handles latent confounders, varying sample sizes, and alpha-sensitivity. Reproduce the chapter §9.8 result where FCI's PAG marks the latent confounder while PC confabulates a direct edge."""),
 
@@ -304,5 +304,5 @@ md("""## What's next
 Lab 10 turns from estimating effects under a discovered DAG to *decomposing* those effects along the DAG's paths — mediation analysis applied to root-cause attribution in FDC."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab09.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch09" / "lab09.ipynb", cells)
 print("Built lab09.ipynb")

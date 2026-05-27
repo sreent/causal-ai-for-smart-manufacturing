@@ -1,4 +1,4 @@
-"""Build labs/lab08.ipynb — Dynamic regimes, Q-learning, A-learning."""
+"""Build labs/ch08/lab08.ipynb — Dynamic regimes, Q-learning, A-learning."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 8 — Dynamic Treatment Regimes: Q-Learning and A-Learning
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab08.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch08/lab08.ipynb)
 
 **Companion lab to Chapter 8.** Find the optimal preventive-maintenance regime by Q-learning backward induction, verify against an analytical oracle threshold, and compare with A-learning (the contrast-modeling alternative). Stress the estimator under outcome-model misspecification to see Q-learning's main failure mode."""),
 
@@ -293,5 +293,5 @@ md("""## What's next
 Lab 9 turns from estimating effects under a known DAG to *discovering* the DAG from data — constraint-based methods (PC, FCI), score-based methods (GES), and continuous-optimization approaches (NOTEARS, DAGMA)."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab08.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch08" / "lab08.ipynb", cells)
 print("Built lab08.ipynb")

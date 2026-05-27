@@ -1,4 +1,4 @@
-"""Build labs/lab12.ipynb — Causal RL and digital twins."""
+"""Build labs/ch12/lab12.ipynb — Causal RL and digital twins."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 12 — Causal Reinforcement Learning and Digital Twins
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab12.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch12/lab12.ipynb)
 
 **Companion lab to Chapter 12.** Reproduce the Simpson's-paradox dispatch from §12.7 where naive offline RL learns the *opposite* of the optimal policy. Then build a calibrated digital twin, show it recovers the correct ranking, and explore the sim-to-real gap when calibration is imperfect."""),
 
@@ -246,5 +246,5 @@ md("""## What's next
 Lab 13 closes the loop: a deployed analysis needs sensitivity to its assumptions, transportability across deployment settings, and a deployment-monitoring pipeline."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab12.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch12" / "lab12.ipynb", cells)
 print("Built lab12.ipynb")

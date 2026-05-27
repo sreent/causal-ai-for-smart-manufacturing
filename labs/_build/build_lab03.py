@@ -1,4 +1,4 @@
-"""Build labs/lab03.ipynb — front-door and do-calculus."""
+"""Build labs/ch03/lab03.ipynb — front-door and do-calculus."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 3 — Front-Door Identification and the do-calculus
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab03.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch03/lab03.ipynb)
 
 **Companion lab to Chapter 3.** Use the front-door criterion to identify the effect of a recipe change on yield when the only confounder is unobserved tool drift. Watch the back-door criterion fail. Implement the two-stage front-door estimator by hand, verify it against the SCM's truth, and stress it under non-linear mediator-outcome surfaces."""),
 
@@ -328,5 +328,5 @@ md("""## What's next
 Lab 4 turns to quasi-experimental designs: when neither back-door nor front-door applies, an instrumental variable, a regression-discontinuity threshold, or a difference-in-differences design may still let you identify. The setting of Lab 4 is the chapter's three classical designs applied to manufacturing data."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab03.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch03" / "lab03.ipynb", cells)
 print("Built lab03.ipynb")

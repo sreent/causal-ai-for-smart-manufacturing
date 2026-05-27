@@ -1,4 +1,4 @@
-"""Build labs/lab10.ipynb — Multi-stage mediation, RCA, and FDC."""
+"""Build labs/ch10/lab10.ipynb — Multi-stage mediation, RCA, and FDC."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 10 — Multi-Stage Mediation, RCA, and FDC
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab10.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch10/lab10.ipynb)
 
 **Companion lab to Chapter 10.** Three parts:
 
@@ -342,5 +342,5 @@ md("""## What's next
 Lab 11 turns from decomposing existing effects to *evaluating new policies* without deploying them — off-policy evaluation."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab10.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch10" / "lab10.ipynb", cells)
 print("Built lab10.ipynb")

@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 for n in range(1, 14):
-    path = f"labs/lab{n:02d}.ipynb"
+    path = f"labs/ch{n:02d}/lab{n:02d}.ipynb"
     nb = json.load(open(path))
     g = {"__name__": "__main__"}
     for i, c in enumerate(nb["cells"]):

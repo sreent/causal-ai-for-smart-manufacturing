@@ -1,4 +1,4 @@
-"""Build labs/lab07.ipynb — Time-varying treatments."""
+"""Build labs/ch07/lab07.ipynb — Time-varying treatments."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 7 — Time-Varying Treatments: G-Formula, IPTW, MSM, and Doubly-Robust Sequential
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab07.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch07/lab07.ipynb)
 
 **Companion lab to Chapter 7.** When decisions repeat over time and the same machinery from Chapter 5 — outcome models, propensities, doubly-robust combination — extends to sequential settings. The lab implements all four sequential estimators on a two-period preventive-maintenance scenario, then introduces a controlled outcome-model misspecification and watches each estimator degrade in characteristic ways.
 
@@ -337,5 +337,5 @@ md("""## What's next
 Lab 8 turns from evaluating a given dynamic regime to *finding the optimal one* — Q-learning and A-learning. The maintenance scenario gets a cost-per-PM penalty so the optimum is non-trivial."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab07.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch07" / "lab07.ipynb", cells)
 print("Built lab07.ipynb")

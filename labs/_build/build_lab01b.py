@@ -1,4 +1,4 @@
-"""Build labs/lab01b.ipynb — companion to Lab 1A using real SECOM data."""
+"""Build labs/ch01/lab01b.ipynb — companion to Lab 1A using real SECOM data."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook  # noqa: E402
@@ -7,7 +7,7 @@ cells = [
 
 md("""# Lab 1B — From Correlation to Causation: The High-AUC Trap on Real SECOM Data
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab01b.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch01/lab01b.ipynb)
 
 **Companion to Lab 1A.** Lab 1A built the trap on a synthetic SCM where we knew the truth and could verify that back-door adjustment recovers it. **Lab 1B runs the same loop on real semiconductor-yield data where the truth is unknown.**
 
@@ -196,5 +196,5 @@ md("""## What's next
 Lab 2B uses Bosch Production Line Performance data to demonstrate the back-door criterion in a multi-stage line context — same five-step skeleton, different DAG, different adjustment set."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab01b.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch01" / "lab01b.ipynb", cells)
 print("Built lab01b.ipynb")

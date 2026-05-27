@@ -1,4 +1,4 @@
-"""Build labs/lab04.ipynb — IV, DID, and RDD."""
+"""Build labs/ch04/lab04.ipynb — IV, DID, and RDD."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 4 — Quasi-Experimental Designs: IV, DID, and RDD
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab04.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch04/lab04.ipynb)
 
 **Companion lab to Chapter 4.** Three identification strategies for when neither back-door nor front-door applies: an *instrumental variable* design, a *difference-in-differences* design, and a *regression-discontinuity* design. Each is built from a manufacturing scenario and verified against a known SCM.
 
@@ -395,5 +395,5 @@ md("""## What's next
 Lab 5 turns from identification to *estimation*: when the back-door is identifiable, what's the best estimator? We will compare matching, IPW, doubly-robust, and double machine learning on the same data, with a focus on how each handles complex outcome surfaces and imbalanced treatment groups."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab04.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch04" / "lab04.ipynb", cells)
 print("Built lab04.ipynb")

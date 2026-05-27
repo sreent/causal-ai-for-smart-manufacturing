@@ -1,4 +1,4 @@
-"""Build labs/lab13.ipynb — Transportability, sensitivity, and deployment."""
+"""Build labs/ch13/lab13.ipynb — Transportability, sensitivity, and deployment."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 13 — Transportability, Sensitivity, and Deployment
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab13.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch13/lab13.ipynb)
 
 **Companion lab to Chapter 13.** Reproduce the §13.7 Cinelli-Hazlett robustness analysis. Implement line-to-line transportability via re-weighting. Build a deployment-monitoring pipeline that detects distribution shift and concept drift."""),
 
@@ -403,5 +403,5 @@ The lab pattern that recurred: *state the SCM, define the truth, run the estimat
 Best of luck with the capstone."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab13.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch13" / "lab13.ipynb", cells)
 print("Built lab13.ipynb")

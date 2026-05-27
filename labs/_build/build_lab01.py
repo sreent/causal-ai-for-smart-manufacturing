@@ -1,4 +1,4 @@
-"""Build labs/lab01.ipynb — Correlation to Causation."""
+"""Build labs/ch01/lab01.ipynb — Correlation to Causation."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 1 — From Correlation to Causation
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab01.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch01/lab01.ipynb)
 
 **Companion lab to Chapter 1.** Build the high-AUC trap on synthetic stamping-line data, see why a strong predictive classifier still recommends the wrong intervention, and recover the right answer with a manual back-door adjustment.
 
@@ -376,5 +376,5 @@ Chapter 2 formalizes the DAG and back-door machinery you just used by hand. Lab 
 The pattern this lab established is the recurring shape of every chapter going forward: **state the SCM, identify what's observable and what's latent, choose an identification strategy, estimate, validate against the ground truth where possible.**"""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab01.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch01" / "lab01.ipynb", cells)
 print("Built lab01.ipynb")

@@ -1,4 +1,4 @@
-"""Build labs/lab05.ipynb — Estimation I: Matching, IPW, DR, DML."""
+"""Build labs/ch05/lab05.ipynb — Estimation I: Matching, IPW, DR, DML."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 5 — Estimation: G-Computation, IPW, AIPW, and DML
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab05.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch05/lab05.ipynb)
 
 **Companion lab to Chapter 5.** When back-door identification holds, what is the best estimator? This lab implements four estimators from scratch on the same data — *G-computation* (outcome-model-based), *IPW* (propensity-score-based), *AIPW* (doubly-robust), and *DML* (cross-fitted doubly-robust) — and shows how each handles complex outcome surfaces, imbalanced treatment, and positivity violations.
 
@@ -373,5 +373,5 @@ md("""## What's next
 Lab 6 turns from average effects (ATE) to *conditional* average effects (CATE) — the heterogeneity of treatment effects across subpopulations. The meta-learners (S-, T-, X-, R-, DR-) and causal forests build directly on the nuisance machinery you just implemented."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab05.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch05" / "lab05.ipynb", cells)
 print("Built lab05.ipynb")

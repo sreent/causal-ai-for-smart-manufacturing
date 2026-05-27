@@ -1,4 +1,4 @@
-"""Build labs/lab11.ipynb — Off-policy evaluation."""
+"""Build labs/ch11/lab11.ipynb — Off-policy evaluation."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from _nb import md, code, write_notebook
@@ -6,7 +6,7 @@ from _nb import md, code, write_notebook
 cells = [
 md("""# Lab 11 — Off-Policy Evaluation: DM, IPS, SNIPS, DR
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/lab11.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sreent/causal-ai-for-smart-manufacturing/blob/main/labs/ch11/lab11.ipynb)
 
 **Companion lab to Chapter 11.** Evaluate a candidate dispatch policy from historical data alone — no deployment. Implement DM, IPS, SNIPS, DR. Demonstrate the doubly-robust property on both sides. Extend to sequential OPE on the Lab 8 PM scenario."""),
 
@@ -328,5 +328,5 @@ md("""## What's next
 Lab 12 closes the loop on policy learning: causal RL where the *target* policy is itself being trained from a combination of observational data, twin rollouts, and (where allowed) online interaction."""),
 ]
 
-write_notebook(pathlib.Path(__file__).parent.parent / "lab11.ipynb", cells)
+write_notebook(pathlib.Path(__file__).parent.parent / "ch11" / "lab11.ipynb", cells)
 print("Built lab11.ipynb")
