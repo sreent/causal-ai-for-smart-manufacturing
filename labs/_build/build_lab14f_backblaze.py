@@ -144,7 +144,7 @@ md("""## Artifact 4 — Estimator
 
 ### Q4.1 Synthesise actions, compute rewards under a chosen cost ratio, fit Q-functions.
 
-*Hint.* Reuse Lab 8B's backward-induction pattern. Start with $c_F / c_R = 10$.
+*Hint.* Backward induction (Lab 8B's pattern): *fit the last stage first*. Compute the realised terminal reward for each drive under the synthesised actions, then fit $\\hat Q_2(s_2, a_2)$ by regressing that reward on $(s_2, a_2)$ on the subset that reached stage 2 with $A_1 = 0$. For stage 1, fit $\\hat Q_1(s_1, a_1)$ by regressing a *pseudo-outcome* on $(s_1, a_1)$: the pseudo-outcome is the realised reward when $a_1 = 1$ or the drive failed early, and $\\max_a \\hat Q_2(s_2, a)$ otherwise (so stage 1 sees the best the future could be). Start with $c_F / c_R = 10$.
 
 *Your turn.*"""),
 

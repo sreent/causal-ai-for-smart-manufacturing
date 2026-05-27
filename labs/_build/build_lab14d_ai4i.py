@@ -89,6 +89,8 @@ reveal("""```
 
 **Defended edges.** *Type → rot_speed / failure:* codebook §3.2 documents per-variant operating envelopes. *Tool_wear → rot_speed:* standard operator practice on milling lines; named in Matzka §4. *Torque → tool_wear:* mechanical wear accumulates faster under load (textbook). *Temperatures → rot_speed:* operators throttle for thermal management; common on commercial CNC lines."""),
 
+md("""**Note on defense rigour.** The reveal above cites the AI4I codebook because, on this dataset, the codebook *is* available and is the strongest defense. *Your own defenses do not need codebook citations.* On many real industrial datasets there is no published codebook; in that case, naming the physical or operator-practice mechanism — *"operators slow worn tools to avoid catastrophic failure"* — is the defense, and it is fully acceptable. The capstone evaluates *whether the edge is mechanically defensible*, not *whether you found a paper for it*."""),
+
 md("""### Q1.3 Name a latent confounder and where the sensitivity analysis (Artifact 5) will bound it.
 
 *Your turn.*"""),

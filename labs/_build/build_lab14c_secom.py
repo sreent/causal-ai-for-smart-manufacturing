@@ -126,7 +126,9 @@ reveal("""**`period → sensor_i`.** SECOM was collected Jul-Oct 2008 across fou
 
 **`S_i → yield_fail`.** Each candidate sensor measures a physical quantity (anonymised in SECOM but real); at least *some* of the observed sensor-yield correlation is causal under any plausible chemistry. Whether it is *enough* to be worth a capital allocation is what the estimator in Artifact 4 will quantify."""),
 
-md("""**Discussion.** "Documented in the SECOM codebook" beats "we assume" every time. When you cannot point to a citation, the next-best move is to *name the physical mechanism* — calibration cycles, supplier rotations, mix shifts. If a defense reads like "our team thought so", a domain reviewer will reject it; if it reads like "the calibration-cycle re-zeroes the sensor on a 30-day schedule (codebook §2)", they will engage with it."""),
+md("""**Discussion.** "Documented in the SECOM codebook" beats "we assume" every time. When you cannot point to a citation, the next-best move is to *name the physical mechanism* — calibration cycles, supplier rotations, mix shifts. If a defense reads like "our team thought so", a domain reviewer will reject it; if it reads like "the calibration-cycle re-zeroes the sensor on a 30-day schedule (codebook §2)", they will engage with it.
+
+*Your defense does not need to match the reveal verbatim.* The reveal cites specific sources because that is the *highest-rigour* version of an edge defense. A defense written in operator-vocabulary — "calibration drifts every 30 days because the laboratory recalibrates the gauges between maintenance shifts" — without a paper citation is *equally valid* for the capstone if it names a real mechanism. The capstone rewards *defensible*, not *cited*."""),
 
 md("""---
 
@@ -308,7 +310,7 @@ md("""---
 
 ### Q5.1 Compute the Cinelli-Hazlett robustness value for the winner.
 
-*Hint.* The RV at $q=1$ (estimate-to-zero) is $\\mathrm{RV} = 0.5 (\\sqrt{f^4 + 4f^2} - f^2)$ with $f = |t| / \\sqrt{\\mathrm{dof}}$ from the linear-probability model fit. Refer to Lab 13B.
+*Hint.* The robustness value (RV) is the partial-$R^2$ a hypothetical unmeasured confounder would need to have with *both* the treatment and the outcome to wipe out the estimate (Cinelli & Hazlett 2020 / Lab 13B). At $q=1$ (estimate-to-zero), $\\mathrm{RV} = 0.5 (\\sqrt{f^4 + 4f^2} - f^2)$ with $f = |t| / \\sqrt{\\mathrm{dof}}$ from a linear-probability model fit on $(Y, T, Z)$. A larger RV means the estimate survives a more powerful hidden confounder.
 
 *Your turn — compute the RV for the winner.*"""),
 
@@ -393,7 +395,7 @@ reveal("""Wafers from the same SECOM fab process, in the Jul-Oct 2008 calendar w
 
 md("""### Q6.2 Run a transportability check by splitting periods into source and target.
 
-*Hint.* Lab 13B's pattern: re-estimate on source (Jul-Aug), apply to target (Sep-Oct), compare. A < 25% gap supports transport.
+*Hint.* Transportability across time periods (Lab 13B's pattern): fit the estimator on the *source* subset (here, the earlier periods), fit it again on the *target* subset (the later periods), compare the two estimates. If the relative gap $|\\hat\\tau_{\\text{src}} - \\hat\\tau_{\\text{tgt}}| / |\\hat\\tau_{\\text{src}}| < 25\\%$, the estimate transports cleanly; if the gap is wider, the source-period estimate cannot be trusted to apply to the target period without a re-fit.
 
 *Your turn.*"""),
 

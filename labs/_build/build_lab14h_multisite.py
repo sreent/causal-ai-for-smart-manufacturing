@@ -167,7 +167,7 @@ print(f'True tau(z)    = +0.10 + +0.40 * z (from the SCM)')
 
 md("""### Q4.2 Compute the density ratio $p_B(z) / p_A(z)$ via classifier.
 
-*Hint.* The classifier trick from Lab 13B: pool A and B; fit $r(z) = P(\\text{source} = A \\mid z)$; the density ratio is $(1 - r) / r$.
+*Hint.* The classifier-as-density-ratio trick (Lab 13B): instead of estimating $p_A(z)$ and $p_B(z)$ separately, *pool* the source and target rows, fit a binary classifier $r(z) = P(\\text{row is source} \\mid z)$, and use the identity $p_B(z) / p_A(z) = (1 - r(z)) / r(z)$ (Bayes rule, up to a prior-ratio constant that drops out after self-normalisation). The classifier doesn't have to be exotic; logistic regression on the covariates of interest is enough. Clip $r$ away from 0 and 1 to keep weights bounded.
 
 *Your turn.*"""),
 
