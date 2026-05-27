@@ -17,7 +17,7 @@ The deliverable: an honest estimate of how *cumulative early-cycle high-drop exp
 
 md("""## What this lab is *not* doing
 
-- **Full counterfactual trajectory simulation.** We use a one-shot g-comp on the cumulative-exposure summary, not a sequential simulator. The chapter's Markov-decision treatment of dynamic regimes is in Lab 8B.
+- **Full per-cycle sequential simulation across all 50 cycles.** Parts 4-6 use a one-shot g-comp / IPTW on a cumulative early-cycle exposure summary. Part 7 then implements a proper *sequential* g-formula (iterated conditional expectation) on two cycle bins to demonstrate the chapter's full machinery and compare the two estimates side-by-side. A 50-bin version is a straightforward but unwieldy extension.
 - **Censoring corrections.** Some Severson cells have right-censored cycle_lives; the pre-processed slice ships them as continuous values.
 - **Operating-condition controls.** Temperature, current, etc., are not in the vendored slice (only capacity). A richer analysis would condition on these too."""),
 
@@ -144,7 +144,121 @@ print(f"MSM (IPTW-weighted) slope: {float(msm.coef_[0]):+.2f}")
 print(f"G-comp slope:               {g_marginal:+.2f}")
 print(f"Naive slope:                {float(naive.coef_[0]):+.2f}")"""),
 
-md("""## Part 7 — Decision
+md("""## Part 7 — Sequential g-formula on two cycle bins
+
+The Parts 5-6 estimators collapsed all 50 early cycles into a single $(A, L)$ pair, treating cumulative exposure as a one-shot treatment. The chapter's *full* time-varying g-formula keeps the sequence: at each time step, the time-varying confounder $L_t$ depends on past treatment $A_{<t}$, and the next-step treatment $A_t$ depends on $L_t$.
+
+We demonstrate this on two cycle bins:
+
+- **Bin 1:** cycles 2-25. $A_1$ = 1 if the cell had above-median high-drop cycles in this bin; $L_1$ = `max_cap` at cycle 25.
+- **Bin 2:** cycles 26-50. $A_2$ = 1 if above-median in this bin; $L_2$ = `max_cap` at cycle 50.
+
+The causal sequence is $A_1 \\to L_2 \\to A_2 \\to Y$ (with $L_1$ and $L_2$ as time-varying confounders). The **iterated-conditional-expectation (ICE) g-formula** estimates $E[Y(a_1, a_2)]$ by:
+
+1. Fit $\\hat{L}_2(A_1, L_1)$ — how the next-period capacity responds to past treatment.
+2. Fit $\\hat{Y}(A_1, L_1, A_2, L_2)$ — terminal outcome model.
+3. For each cell and each $(a_1, a_2)$ trajectory, predict the counterfactual $\\hat{L}_2(a_1, L_1^{\\text{obs}})$ and then $\\hat{Y}(a_1, L_1^{\\text{obs}}, a_2, \\hat{L}_2)$. Average over cells.
+
+This *propagates the counterfactual* through the time-varying confounder, which the one-shot version does not."""),
+
+code("""BIN1_END = 25
+BIN2_END = 50
+
+# Per-cell two-bin panel: A_1, L_1, A_2, L_2, Y
+cyc_sorted = cyc.sort_values(['cell_id', 'cycle']).reset_index(drop=True)
+bin1 = cyc_sorted[(cyc_sorted['cycle'] >= 2) & (cyc_sorted['cycle'] <= BIN1_END)]
+bin2 = cyc_sorted[(cyc_sorted['cycle'] > BIN1_END) & (cyc_sorted['cycle'] <= BIN2_END)]
+
+panel = (
+    pd.DataFrame({'cell_id': cyc_sorted['cell_id'].unique()})
+      .merge(bin1.groupby('cell_id')['A_t'].sum().rename('n_high_b1').reset_index(), on='cell_id', how='left')
+      .merge(bin2.groupby('cell_id')['A_t'].sum().rename('n_high_b2').reset_index(), on='cell_id', how='left')
+      .merge(cyc_sorted[cyc_sorted['cycle'] == BIN1_END][['cell_id', 'max_cap']].rename(columns={'max_cap': 'L_1'}), on='cell_id', how='left')
+      .merge(cyc_sorted[cyc_sorted['cycle'] == BIN2_END][['cell_id', 'max_cap']].rename(columns={'max_cap': 'L_2'}), on='cell_id', how='left')
+      .merge(cyc_sorted.groupby('cell_id')['cycle_life'].first().reset_index(), on='cell_id', how='left')
+).dropna().reset_index(drop=True)
+
+panel['A_1'] = (panel['n_high_b1'] > panel['n_high_b1'].median()).astype(int)
+panel['A_2'] = (panel['n_high_b2'] > panel['n_high_b2'].median()).astype(int)
+
+print(f"Two-bin panel shape: {panel.shape}")
+print(f"  A_1 prevalence: {panel['A_1'].mean():.2%}")
+print(f"  A_2 prevalence: {panel['A_2'].mean():.2%}")
+print()
+print("Joint trajectory counts (A_1, A_2):")
+print(panel.groupby(['A_1', 'A_2']).size().rename('count').reset_index().to_string(index=False))"""),
+
+code("""# Step 1: How does L_2 respond to past treatment A_1 and L_1?
+L2_model = LinearRegression().fit(panel[['A_1', 'L_1']].values, panel['L_2'].values)
+beta_A1_on_L2 = float(L2_model.coef_[0])
+print(f"Coefficient of A_1 on L_2: {beta_A1_on_L2:+.5f}  (a cell with A_1=1 ends bin 2 with capacity {beta_A1_on_L2:+.4f} relative to A_1=0)")
+
+# Step 2: Terminal outcome model
+Y_model = LinearRegression().fit(panel[['A_1', 'L_1', 'A_2', 'L_2']].values, panel['cycle_life'].values)
+print(f"\\nTerminal Y coefficients:")
+for name, val in zip(['A_1', 'L_1', 'A_2', 'L_2'], Y_model.coef_):
+    print(f"  {name}: {float(val):+.2f}")
+
+# Step 3: Iterated counterfactual prediction
+def E_Y_seq(a1, a2):
+    L1 = panel['L_1'].values
+    L2_counterfactual = L2_model.predict(np.column_stack([np.full(len(panel), a1), L1]))
+    Y_hat = Y_model.predict(np.column_stack([
+        np.full(len(panel), a1), L1,
+        np.full(len(panel), a2), L2_counterfactual,
+    ]))
+    return float(Y_hat.mean())
+
+E00 = E_Y_seq(0, 0)
+E01 = E_Y_seq(0, 1)
+E10 = E_Y_seq(1, 0)
+E11 = E_Y_seq(1, 1)
+
+print(f"\\nSequential g-formula counterfactuals:")
+print(f"  E[Y(A_1=0, A_2=0)] = {E00:.0f}  (never high)")
+print(f"  E[Y(A_1=1, A_2=0)] = {E10:.0f}  (early high only)")
+print(f"  E[Y(A_1=0, A_2=1)] = {E01:.0f}  (late high only)")
+print(f"  E[Y(A_1=1, A_2=1)] = {E11:.0f}  (always high)")
+print()
+ATE_always = E11 - E00
+ATE_early  = E10 - E00
+ATE_late   = E01 - E00
+print(f"  ATE always-high vs never-high:       {ATE_always:+.1f} cycles")
+print(f"  ATE early-only vs never:              {ATE_early:+.1f} cycles")
+print(f"  ATE late-only vs never:               {ATE_late:+.1f} cycles")"""),
+
+code("""# Side-by-side: sequential g-formula vs the one-shot g-comp from Part 5.
+# The one-shot Part-5 slope was per +1 high-drop cycle; convert to a comparable
+# scale by multiplying by the bin's mean n_high_cycles for binary A_b.
+mean_bin_n_high = panel.loc[panel['A_1'] == 1, 'n_high_b1'].mean() - panel.loc[panel['A_1'] == 0, 'n_high_b1'].mean()
+one_shot_implied_2bin = float(naive.coef_[0]) * mean_bin_n_high * 2  # both bins binarised
+g_one_shot_implied   = g_marginal * mean_bin_n_high * 2
+
+print(f"On the 'always-high vs never-high' contrast:")
+print(f"  Naive (one-shot, implied)            = {one_shot_implied_2bin:+.1f} cycles")
+print(f"  G-comp (one-shot, implied)           = {g_one_shot_implied:+.1f} cycles")
+print(f"  Sequential g-formula (ICE, Part 7)   = {ATE_always:+.1f} cycles")
+print()
+if abs(beta_A1_on_L2) < 0.001:
+    print("Interpretation: A_1's effect on L_2 is essentially zero in this dataset.")
+    print("That means the time-varying confounder isn't propagating through past")
+    print("treatment, so the one-shot and sequential estimates should agree closely.")
+else:
+    print("Interpretation: A_1 does shift L_2 (the time-varying confounder responds")
+    print("to past treatment). The sequential g-formula propagates this counterfactual")
+    print("shift; the one-shot version doesn't.")"""),
+
+md("""**Read the comparison.** Three things to watch:
+
+1. **Step 1's coefficient: does $A_1$ shift $L_2$?** If it is near zero, the *direct* time-varying-confounding effect — past treatment moving the future confounder — is small. In the Severson data this coefficient is ~$-0.002$, a few thousandths of a unit of capacity, which is tiny in absolute terms.
+
+2. **L₂'s coefficient in the Y model is large.** A small counterfactual shift in $L_2$ multiplied by a large outcome slope on $L_2$ still propagates to a non-trivial change in $\\hat{Y}$. This is the *mechanism* by which the sequential g-formula and the one-shot estimate can differ even when the $A_1 \\to L_2$ link looks weak in isolation.
+
+3. **Why the one-shot and sequential estimates still differ in our run.** The biggest reason is *not* that the LFP chain is strong — it isn't — but that the two estimators use *different feature representations*: the one-shot regresses on a 2-feature summary $(A_{\\text{cum}}, L_{\\text{cum}})$, while the sequential ICE uses the four-feature $(A_1, L_1, A_2, L_2)$ panel. Different bias-variance regimes. With $n = 124$ cells, the four-feature OLS is also more sensitive to the collinearity between $L_1$ and $L_2$ (note the large opposing coefficients in the terminal model — a sign that capacity at two nearby checkpoints is highly correlated). A regularised estimator or a saturated nonparametric alternative would tighten the comparison.
+
+**The chapter's lesson, applied here.** The sequential ICE g-formula is the principled estimator when the time-varying chain matters; the one-shot is a coarser approximation. In Severson LFP the chain is weak in absolute terms, so a serious analyst would report the sequential number with a wider uncertainty band and note that the one-shot lands in the same neighbourhood. The diagnostic to trust is *Step 1* — the magnitude of $A_t$'s effect on the next-period confounder — not the closeness of the final point estimates."""),
+
+md("""## Part 8 — Decision
 
 Three bullets:
 
@@ -156,9 +270,11 @@ Three bullets:
 
 md("""## Reflection
 
-**The time-varying confounder is a feature you can compute, not a hypothesis you can avoid.** Past capacity level is a measurable variable; ignoring it because the data is messy gives a biased estimate. G-comp and IPTW are the two principled ways to handle it — they should agree, and disagreement is diagnostic.
+**The time-varying confounder is a feature you can compute, not a hypothesis you can avoid.** Past capacity level is a measurable variable; ignoring it because the data is messy gives a biased estimate. G-comp and IPTW are the two principled ways to handle it on a summary; the sequential ICE g-formula in Part 7 is what you reach for when the chain $A_t \\to L_{t+1} \\to A_{t+1}$ matters substantively.
 
-**Coarse summarisation is a modelling choice with consequences.** We collapsed 50 cycles of trajectory into two numbers (cumulative exposure + final capacity). A richer analysis would model the full per-cycle treatment-confounder sequence, with a separate propensity per cycle. That is Lab 8B's territory."""),
+**Granularity is a modelling choice, not a methodological one.** Lab 7B implements the same chapter machinery at two granularities — one bin (Parts 4-6) and two bins (Part 7). A 5-bin or 49-bin version is the same recipe with more terms; the curve of estimates as you refine the binning is itself a diagnostic. If the answer stabilises by two bins, two bins is enough; if it drifts as you refine, the coarsening was hiding signal.
+
+**When to use each.** The Severson chain is weak: $A_1$ barely shifts $L_2$, so the coarsened g-comp gives a number close to the sequential ICE. For datasets where treatment has strong dynamical feedback on the confounder (e.g., a medical PM cohort where an early intervention permanently alters the patient's state), the sequential machinery is the only valid choice."""),
 
 md("""## What's next
 

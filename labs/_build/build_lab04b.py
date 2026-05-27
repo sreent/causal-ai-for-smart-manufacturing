@@ -108,7 +108,64 @@ print(overlap.to_string())"""),
 
 md("""**The right way to read the plot.** If the three batches occupy roughly the same region of the x-axis and the slope `cycle_life ~ log_var_deltaQ` looks roughly parallel across batches, the DID estimates from Part 3 are at least *consistent* with the parallel-trends assumption. If the batches are in distinct x-regions or have distinct slopes, the assumption is doubtful and the Part-3 numbers need a much larger uncertainty band than the OLS standard errors suggest."""),
 
-md("""## Part 5 — IV interpretation (sketch)
+md("""## Part 5 — A stricter test on the per-cycle trajectories
+
+Part 4 checks overlap on a single *summary* feature. A stricter diagnostic looks at the **per-cycle capacity trajectory** in the very earliest cycles (2-10). The Severson protocols are applied from cycle 1, so this is not a textbook pre-treatment window, but capacity fade is gradual: in the first ten cycles the batches' mean capacities differ only by tens of mAh out of ~1.06 Ah, and protocol effects on the trajectory are small relative to manufacturing variability. *If the per-batch slopes are already markedly different by cycle 10, the cells were heterogeneous to begin with and the DID estimate is suspect; if the slopes are parallel, the cells started in similar enough conditions to justify proceeding.*
+
+This requires the per-cycle slice that Lab 7B works with (`lfp_cell_cycle.csv`)."""),
+
+code("""# Per-cycle slice (chapter=7 returns it)
+cyc = load_lfp(chapter=7)
+early = cyc[(cyc['cycle'] >= 2) & (cyc['cycle'] <= 10)].copy()
+
+# Per-(batch, cycle) mean capacity
+traj = early.groupby(['batch', 'cycle'])['max_cap'].mean().reset_index()
+
+fig, ax = plt.subplots(figsize=(7, 4))
+for b in ['train', 'test1', 'test2']:
+    sub = traj[traj['batch'] == b]
+    ax.plot(sub['cycle'], sub['max_cap'], 'o-', label=f'{b}')
+ax.set_xlabel('Cycle')
+ax.set_ylabel('Mean max_cap (Ah)')
+ax.set_title('Per-batch trajectory of mean capacity in cycles 2-10')
+ax.legend()
+ax.grid(alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+# Slope-equality F-test: does the cycle x batch interaction add anything?
+X = pd.DataFrame({
+    'cycle':         early['cycle'].values.astype(float),
+    'is_test1':      (early['batch'] == 'test1').astype(float),
+    'is_test2':      (early['batch'] == 'test2').astype(float),
+    'cycle_x_test1': early['cycle'].values * (early['batch'] == 'test1').astype(float),
+    'cycle_x_test2': early['cycle'].values * (early['batch'] == 'test2').astype(float),
+})
+X = sm.add_constant(X)
+model = sm.OLS(early['max_cap'].values, X).fit()
+ftest = model.f_test('(cycle_x_test1 = 0), (cycle_x_test2 = 0)')
+
+print('Slope coefficients (cycle x batch interactions, vs train):')
+print(f"  cycle x test1: {float(model.params['cycle_x_test1']):+.6f}  (p = {float(model.pvalues['cycle_x_test1']):.4f})")
+print(f"  cycle x test2: {float(model.params['cycle_x_test2']):+.6f}  (p = {float(model.pvalues['cycle_x_test2']):.4f})")
+print()
+print('Joint F-test of slope-equality (both interactions = 0):')
+print(f'  F = {float(ftest.fvalue):.3f},  p-value = {float(ftest.pvalue):.4f}')
+print()
+print('  p > 0.05 -> cannot reject parallel-slopes in cycles 2-10 (DID supported).')
+print('  p <= 0.05 -> at least one batch differentiates within the first 10 cycles')
+print('              (DID identification is on shakier ground).')"""),
+
+md("""**Read the test together with Part 4.** Together the two checks bracket the DID assumption:
+
+- **Part 4** asks whether the *covariate distributions* line up — same value of `log_var_deltaQ`, same expected `cycle_life`?
+- **Part 5** asks whether the *capacity trajectory* lines up — same slope of capacity loss in the earliest cycles before protocol effects accumulate?
+
+If both pass, the batch-as-treatment-cohort design is internally consistent. If either fails (the F-test rejects, or Part 4's regions don't overlap), the DID point estimate is a *cohort comparison*, not a textbook DID, and should be reported with the assumption gap stated.
+
+**Caveat.** Cells are under their assigned fast-charge protocol from cycle 1, so this is not strictly a *pre-treatment* test. It is a light-touch pre-treatment test that exploits the slow timescale of capacity fade. The textbook DID — with a clean pre/post structure — would require a study where cells were observed under a common protocol first and then split into batches."""),
+
+md("""## Part 6 — IV interpretation (sketch)
 
 A pure IV reading would treat batch assignment as an *instrument* for the protocol family received: batch causes protocol-family-membership which causes cycle life. This requires:
 1. Relevance: batch strongly predicts protocol family. **Yes by design.**
@@ -116,21 +173,21 @@ A pure IV reading would treat batch assignment as an *instrument* for the protoc
 
 Because exclusion is doubtful, the IV reading would inflate the estimate by the same confounding the DID is trying to control for. We report the DID result, name the exclusion violation, and treat the IV reading as inconsistent with the data."""),
 
-md("""## Part 6 — Decision
+md("""## Part 7 — Decision
 
 Three bullets, the deliverable a battery-engineering team would read:
 
 1. **Batch-level effects on cycle life** (read off `batch_test1` and `batch_test2` coefficients from Part 3) are the DID-style estimates *if* `log_var_deltaQ` captures all batch-orthogonal differences in initial cell condition. The point estimates are useful for ranking; the magnitudes carry meaningful uncertainty.
 
-2. **The parallel-trends-style check in Part 4** is either passing or failing in your run — if the batches occupy distinct regions of the feature space, the DID estimate is confounded by selection and should not be reported as a protocol effect. If the regions overlap, the estimate is at least internally consistent.
+2. **The two parallel-trends checks** (Part 4 on covariate overlap, Part 5 on early-cycle slope-equality) bracket the DID assumption. If both pass, the estimate is internally consistent. If either fails, the estimate is a *cohort comparison* with selection bias, not a textbook DID, and should be reported with the assumption gap stated explicitly.
 
-3. **A defensible follow-up** would be to (a) get the original protocol assignments per cell (from data.matr.io) and re-estimate at the protocol level, (b) add observed cell-level covariates beyond `log_var_deltaQ` (cycle-1 capacity, internal resistance), and (c) consider a propensity-score-weighted version of the DID, since the implicit assumption of common support across batches is what Part 4 stress-tests."""),
+3. **A defensible follow-up** would be to (a) get the original protocol assignments per cell (from data.matr.io) and re-estimate at the protocol level, (b) add observed cell-level covariates beyond `log_var_deltaQ` (cycle-1 capacity, internal resistance), and (c) consider a propensity-score-weighted version of the DID, since the implicit assumption of common support across batches is what Parts 4-5 stress-test."""),
 
 md("""## Reflection
 
 **Natural experiments are rarely clean experiments.** The Severson batches *look* like an IV/DID setup — different protocols across periods — but the protocols, the collection periods, and the operating conditions are entangled in ways that the published `cycle_life` numbers alone cannot disentangle. The DID estimator is a tool; whether its assumptions hold is a domain question.
 
-**Reporting the diagnostic IS the deliverable.** A team that reports DID estimates without the Part-4 overlap check is reporting numbers without context. A team that reports the overlap check together with the estimate is reporting an analysis."""),
+**Reporting the diagnostic IS the deliverable.** A team that reports DID estimates without the Parts 4 and 5 checks is reporting numbers without context. A team that reports the overlap check and the slope-equality F-test together with the estimate is reporting an analysis."""),
 
 md("""## What's next
 
