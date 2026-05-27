@@ -3,7 +3,8 @@
 A self-contained handbook for the Chapter 14 §14.7 capstone project. This
 document closes the gap from "specification" (what §14.7 lists) to "action"
 (what a learner does at the desk on Monday morning). The companion worked
-example is in [`labs/ch14/lab14c_capstone.ipynb`](ch14/lab14c_capstone.ipynb).
+example is split across six guided notebooks under `labs/ch14/`, one per
+starter (see §4 for the file-to-starter mapping).
 
 ## 1. What the capstone is, and what it isn't
 
@@ -272,6 +273,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter A — SECOM: Causal effect of a top sensor on yield
 
+- **Guided lab.** [`labs/ch14/lab14c_secom.ipynb`](ch14/lab14c_secom.ipynb)
 - **Dataset.** SECOM (UCI 179), full 590-sensor frame.
 - **Question.** Among the five sensors with the largest unadjusted
   correlation with yield_fail, which one has the *largest causal
@@ -287,6 +289,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter B — AI4I: Effect of rotational-speed regime on machine failure
 
+- **Guided lab.** [`labs/ch14/lab14d_ai4i.ipynb`](ch14/lab14d_ai4i.ipynb)
 - **Dataset.** AI4I 2020 (UCI 601), 10,000 milling-machine cycles.
 - **Question.** What is the causal effect of running at *above the median
   rotational speed* on the binary failure outcome, controlling for the
@@ -301,6 +304,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter C — LFP: Cumulative early-cycle high-drop exposure and battery cycle life
 
+- **Guided lab.** [`labs/ch14/lab14e_lfp.ipynb`](ch14/lab14e_lfp.ipynb)
 - **Dataset.** Severson 2019 LFP cells, per-cycle slice.
 - **Question.** What is the causal effect of *cumulative early-cycle
   high-drop exposure* (cycles 2-50) on eventual `cycle_life`, accounting
@@ -315,6 +319,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter D — Backblaze: Optimal pre-emptive-replacement threshold under cost asymmetry
 
+- **Guided lab.** [`labs/ch14/lab14f_backblaze.ipynb`](ch14/lab14f_backblaze.ipynb)
 - **Dataset.** Backblaze Drive Stats, ST4000DM000 30-day subset.
 - **Question.** What is the optimal SMART-based replacement policy at
   decision points day-7 and day-14, under a cost ratio of `c_R = 1`
@@ -332,6 +337,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter E — OEE synthetic: multi-mediator root-cause decomposition
 
+- **Guided lab.** [`labs/ch14/lab14g_oee.ipynb`](ch14/lab14g_oee.ipynb)
 - **Dataset.** `labs/data/oee_synthetic.py` (curated synthetic; the SCM is
   in the module docstring).
 - **Question.** A maintenance program was rolled out unevenly across four
@@ -353,6 +359,7 @@ it, or use it as a template for a different dataset/question.
 
 ### Starter F — Multi-site synthetic: transportability with effect modifier shift
 
+- **Guided lab.** [`labs/ch14/lab14h_multisite.ipynb`](ch14/lab14h_multisite.ipynb)
 - **Dataset.** `labs/data/multisite_synthetic.py` (curated synthetic; SCM
   in the module docstring).
 - **Question.** Plant A's controlled trial estimates ATE ≈ +0.21 from the
@@ -480,22 +487,47 @@ The patterns that consistently cost points in mid-submissions:
   `pip install -r requirements.txt` fails. Run a fresh-environment
   rebuild before submitting.
 
-## 9. Where the worked example helps
+## 9. How to use the guided capstone notebooks
 
-[`labs/ch14/lab14c_capstone.ipynb`](ch14/lab14c_capstone.ipynb) walks
-through *one* full capstone on SECOM, demonstrating every artifact in
-this handbook. Read it once to see what "defensible" looks like in
-practice on the actual data, then close it and write your own capstone
-on a *different* question (or, with instructor approval, the same
-question on a different dataset).
+The six guided notebooks under `labs/ch14/` map one-to-one to the six
+starter prompts in §4:
 
-The worked example deliberately uses the dataset most learners have
-already seen (SECOM, used in Labs 1B/3B/5B/9B/13B/14B). The reason: by
-the time a learner reaches the capstone, SECOM should feel like
-home — the worked example shows them what a serious analysis on a
-familiar dataset looks like. A capstone using SECOM is a perfectly
-acceptable submission; one that picks a different dataset and matches
-the worked example's depth is even better.
+| Starter | Notebook | Pedagogical focus |
+|---------|----------|-------------------|
+| A. SECOM | `lab14c_secom.ipynb` | Most-thorough template — 9 code-cell exercises, 12 prose-cell exercises covering all six artifacts at full depth |
+| B. AI4I 2020 | `lab14d_ai4i.ipynb` | Strongest DAG-from-physics practice (every edge defensible from the AI4I codebook) |
+| C. LFP batteries | `lab14e_lfp.ipynb` | Methodologically deepest — sequential ICE g-formula vs one-shot g-comp comparison on time-varying treatment |
+| D. Backblaze | `lab14f_backblaze.ipynb` | Production-flavoured — DTR Q-learning under a cost-ratio sensitivity sweep ($c_F/c_R \in \{10, 100, 1000\}$) |
+| E. OEE synthetic | `lab14g_oee.ipynb` | Verifiable-answer multi-mediator decomposition — your estimator's correctness is checkable against `true_oee_decomposition()` |
+| F. Multi-site synthetic | `lab14h_multisite.ipynb` | Verifiable transportability — your reweighting must recover `true_ate_per_site()` |
+
+**Pattern within each notebook.** Each artifact section follows:
+1. *Question* prompt with a hint pointing at the relevant Lab B chapter.
+2. *Your turn* cell (markdown or code) for your answer.
+3. *Click to reveal sample answer* — a `<details>` block with one
+   defensible solution.
+4. *Discussion* explaining why the sample answer made the choices it did.
+
+The sample answers are *one* defensible solution per question; a
+different answer can be equally defensible if you can defend it. That
+is the entire point of the capstone — *defensibility*, not solution
+identity.
+
+**Recommended starter pick by learner profile.**
+
+- *Learner with strong domain knowledge in semiconductor / general
+  manufacturing:* Starter A or B (the real-data SECOM/AI4I bets).
+- *Learner who wants methodological depth:* Starter C (sequential
+  g-formula on LFP).
+- *Learner aiming at a production deployment narrative:* Starter D
+  (Backblaze DTR + OPE).
+- *Learner who wants verifiable answers* (good for self-study with no
+  grader): Starter E or F (the curated-synthetic bets).
+- *Learner with their own dataset:* Starter G plus the structure from
+  the most analogous notebook above.
+
+The six notebooks share a common structure so a learner reading one
+can navigate any of the others quickly.
 
 ## 10. Closing
 
